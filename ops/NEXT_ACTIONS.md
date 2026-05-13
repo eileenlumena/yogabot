@@ -7,6 +7,7 @@ Last updated: 2026-05-13
 1. Decide how you want to create the private GitHub repo for the already-created local Git baseline:
    - install/use GitHub CLI (`gh`), or
    - create a private repo on github.com and provide the remote URL.
+   - A new GitHub account is fine if you want this project separated from your main account.
 
 2. Upload the latest local config to the SG server before the 2026-05-14 booking run if you want the new 2026-05-19 targets active on the server.
 

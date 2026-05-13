@@ -16,6 +16,7 @@ Last updated: 2026-05-13
 - Latest discussion: GitHub is recommended only as a private repo after secrets and generated/local files are excluded.
 - Local Git baseline commit exists: `Initial safe project baseline`.
 - `.gitignore` excludes live config, logs, bundles, caches, and generated artifacts.
+- Eileen can use either an existing GitHub account or a new GitHub account, as long as the repo is private and secrets remain untracked.
 
 ## Current State
 
