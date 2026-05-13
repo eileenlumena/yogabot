@@ -4,10 +4,18 @@ Last updated: 2026-05-13
 
 ## For Eileen
 
-1. Decide how you want to create the private GitHub repo for the already-created local Git baseline:
-   - install/use GitHub CLI (`gh`), or
-   - create a private repo on github.com and provide the remote URL.
-   - A new GitHub account is fine if you want this project separated from your main account.
+1. Push the already-created safe local Git baseline to GitHub from Mac Terminal.
+
+```bash
+cd "/Users/eileenmac/Documents/Yoga Booking Bot"
+git push -u origin main
+```
+
+The remote is already configured as:
+
+```text
+https://github.com/eileenlumena/yogabot.git
+```
 
 2. Upload the latest local config to the SG server before the 2026-05-14 booking run if you want the new 2026-05-19 targets active on the server.
 

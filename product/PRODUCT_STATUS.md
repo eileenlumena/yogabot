@@ -17,6 +17,8 @@ Last updated: 2026-05-13
 - Local Git baseline commit exists: `Initial safe project baseline`.
 - `.gitignore` excludes live config, logs, bundles, caches, and generated artifacts.
 - Eileen can use either an existing GitHub account or a new GitHub account, as long as the repo is private and secrets remain untracked.
+- GitHub remote is configured as `https://github.com/eileenlumena/yogabot.git`.
+- Push from Codex was blocked by GitHub credential prompting; Eileen needs to run `git push -u origin main` in Mac Terminal or provide an authenticated route.
 
 ## Current State
 
@@ -51,7 +53,7 @@ The server may not have this latest config unless it has been uploaded.
 
 ## Next Product Tasks
 
-1. If Eileen wants GitHub remote backup, create a private GitHub repo and push the safe local baseline.
+1. Push the safe local baseline to GitHub from an authenticated Mac Terminal session.
 2. Upload and verify config before any important run.
 3. After the next run, compare performance against previous days side by side.
 4. Plan a multi-booking test on non-critical classes:
