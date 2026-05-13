@@ -1,0 +1,150 @@
+{
+  "credentials": {
+    "username": "",
+    "password": ""
+  },
+  "region_id": 2,
+  "language_id": "1",
+  "location_ids": [19],
+  "targets": [
+    {
+      "site": "fitness",
+      "days": ["Mon"],
+      "class_name": "Calisthenics Foundations",
+      "start_time": "12:00",
+      "location_id": 31,
+      "location_name": "Fitness - Ngee Ann City",
+      "teacher_name": "Jushua T.",
+      "teacher_policy": "prefer_named_teacher",
+      "mode": "book_all",
+      "priority": 1,
+      "class_days_ahead": 5,
+      "booking_open_days": 5,
+      "schedule_window_days": 1
+    },
+    {
+      "site": "fitness",
+      "days": ["Mon"],
+      "class_name": "Calisthenics Foundations",
+      "start_time": "18:30",
+      "location_id": 31,
+      "location_name": "Fitness - Ngee Ann City",
+      "teacher_name": "Jushua T.",
+      "teacher_policy": "prefer_named_teacher",
+      "mode": "book_all",
+      "priority": 2,
+      "class_days_ahead": 5,
+      "booking_open_days": 5,
+      "schedule_window_days": 1
+    },
+    {
+      "site": "yoga",
+      "days": ["Tue"],
+      "class_name": "Reformer Signature",
+      "start_time": "10:00",
+      "location_id": 19,
+      "location_name": "Yoga - Ngee Ann City",
+      "teacher_name": "Kelvin T.",
+      "teacher_policy": "prefer_named_teacher",
+      "mode": "book_all",
+      "class_days_ahead": 5,
+      "booking_open_days": 5,
+      "schedule_window_days": 1
+    },
+    {
+      "site": "yoga",
+      "days": ["Fri"],
+      "class_name": "Mat: Classical Pilates",
+      "start_time": "11:15",
+      "location_id": 19,
+      "location_name": "Yoga - Ngee Ann City",
+      "teacher_name": "April L.",
+      "teacher_policy": "prefer_named_teacher",
+      "mode": "book_all",
+      "class_days_ahead": 5,
+      "booking_open_days": 5,
+      "schedule_window_days": 1
+    },
+    {
+      "site": "yoga",
+      "days": ["Sat"],
+      "class_name": "Healing: Yoga Therapy",
+      "start_time": "12:30",
+      "location_id": 19,
+      "location_name": "Yoga - Ngee Ann City",
+      "teacher_name": "Arun R.",
+      "teacher_policy": "prefer_named_teacher",
+      "mode": "book_all",
+      "priority": 1,
+      "class_days_ahead": 5,
+      "booking_open_days": 5,
+      "schedule_window_days": 1
+    },
+    {
+      "site": "yoga",
+      "days": ["Sat"],
+      "class_name": "Healing: Yin Yoga",
+      "start_time": "14:15",
+      "location_id": 22,
+      "location_name": "Yoga - Asia Square Tower 1",
+      "teacher_name": "Inder S.",
+      "teacher_policy": "prefer_named_teacher",
+      "mode": "book_all",
+      "priority": 2,
+      "class_days_ahead": 5,
+      "booking_open_days": 5,
+      "schedule_window_days": 1
+    },
+    {
+      "site": "yoga",
+      "days": ["Sun"],
+      "class_name": "Grounding: Yin-Yang",
+      "start_time": "09:00",
+      "location_id": 22,
+      "location_name": "Yoga - Asia Square Tower 1",
+      "teacher_name": "Sandy S.",
+      "teacher_policy": "prefer_named_teacher",
+      "mode": "book_all",
+      "priority": 1,
+      "class_date": "2026-04-12",
+      "booking_run_date": "2026-04-07",
+      "booking_open_days": 5,
+      "schedule_window_days": 1
+    },
+    {
+      "site": "yoga",
+      "days": ["Sun"],
+      "class_name": "Specialised: Foundation Wall Rope Yoga",
+      "start_time": "14:15",
+      "location_id": 19,
+      "location_name": "Yoga - Ngee Ann City",
+      "teacher_name": "Gene L.",
+      "teacher_policy": "prefer_named_teacher",
+      "mode": "book_all",
+      "priority": 2,
+      "class_date": "2026-04-12",
+      "booking_run_date": "2026-04-07",
+      "booking_open_days": 5,
+      "schedule_window_days": 1
+    }
+  ],
+  "booking": {
+    "open_time": "09:00:00",
+    "wake_seconds_before": 20,
+    "waitlist_fallback": true,
+    "max_booking_retries": 25,
+    "retry_interval_ms": 50,
+    "stop_after_first_priority_success": true,
+    "continue_to_next_priority_on_waitlist": true
+  },
+  "notifications": {
+    "telegram_bot_token": "",
+    "telegram_chat_id": ""
+  },
+  "runtime": {
+    "timezone": "Asia/Singapore",
+    "logs_dir": "logs",
+    "request_timeout_seconds": 20,
+    "verify_ssl": true
+  }
+}

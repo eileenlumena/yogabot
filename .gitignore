@@ -1,0 +1,26 @@
+# Secrets / local live config
+pure_yoga_config.json
+*.env
+.env
+
+# Runtime logs and caches
+logs/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# macOS / editor files
+.DS_Store
+*.swp
+*.swo
+
+# Bundles and generated artifacts
+pure_booking_vps_bundle/
+pure_booking_vps_bundle.zip
+Codex Pet/
+
+# Local virtual environments
+.venv/
+venv/
+env/
+
