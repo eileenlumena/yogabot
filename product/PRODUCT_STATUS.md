@@ -19,6 +19,7 @@ Last updated: 2026-05-13
 - Eileen can use either an existing GitHub account or a new GitHub account, as long as the repo is private and secrets remain untracked.
 - GitHub remote is configured as `https://github.com/eileenlumena/yogabot.git`.
 - GitHub push is complete; `main` and `origin/main` are synced at `8020788` (`Add direct GitHub token link`).
+- GitHub workflow guidance added: commit/push manually at meaningful checkpoints after verified code/docs changes, not for every small conversation.
 
 ## Current State
 

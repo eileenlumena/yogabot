@@ -23,9 +23,11 @@ ssh root@45.77.249.30 'stat -c "%y" /root/PureYogaBot/pure_yoga_config.json'
 1. Before ending future work, update `product/PRODUCT_STATUS.md`.
 2. If UI needs to act, write the handoff in `ops/HANDOFFS.md` and mention it in `product/PRODUCT_STATUS.md`.
 3. If Eileen needs to decide something, add it to `ops/CEO_ACTION_QUEUE.md`.
+4. Commit and push meaningful verified code/docs changes to GitHub before ending substantial work.
 
 ## For UI / Control Panel
 
 1. Before ending future work, update `ui/UI_STATUS.md`.
 2. If Product needs to act, write the handoff in `ops/HANDOFFS.md` and mention it in `ui/UI_STATUS.md`.
 3. Keep UI work within `ui/UI_HANDOVER.md` and `ui/UI_SPEC.md` unless Product approves behavior changes.
+4. Commit and push meaningful verified UI/docs changes to GitHub before ending substantial work.

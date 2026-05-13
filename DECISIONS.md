@@ -38,6 +38,9 @@ Last updated: 2026-05-13
 - For important classes, avoid using them as multi-booking stress tests.
 - The project can use Git/GitHub, but GitHub must be private and the live `pure_yoga_config.json` must stay untracked.
 - Commit the sanitized `pure_yoga_config.example.json`, not the live config with credentials and Telegram secrets.
+- Commit to GitHub manually at meaningful checkpoints, not after every chat message.
+- Commit code/docs/config-example changes after they are verified or after an important handover/status update.
+- Do not commit live local-only files such as `pure_yoga_config.json`, logs, caches, bundles, or generated assets.
 
 ## Communication Protocol
 
