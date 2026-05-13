@@ -18,10 +18,7 @@ Last updated: 2026-05-13
 - `.gitignore` excludes live config, logs, bundles, caches, and generated artifacts.
 - Eileen can use either an existing GitHub account or a new GitHub account, as long as the repo is private and secrets remain untracked.
 - GitHub remote is configured as `https://github.com/eileenlumena/yogabot.git`.
-- Push from Codex was blocked by GitHub credential prompting.
-- Eileen tried HTTPS username/password push; GitHub rejected it because password authentication is no longer supported for Git operations.
-- Next GitHub auth path should use either a personal access token, SSH key, or GitHub CLI login.
-- Eileen could not see `Developer settings` in the visible GitHub settings sidebar; direct fine-grained token URL was provided in `ops/NEXT_ACTIONS.md`.
+- GitHub push is complete; `main` and `origin/main` are synced at `8020788` (`Add direct GitHub token link`).
 
 ## Current State
 
@@ -56,11 +53,10 @@ The server may not have this latest config unless it has been uploaded.
 
 ## Next Product Tasks
 
-1. Push the safe local baseline to GitHub from an authenticated Mac Terminal session.
-2. Upload and verify config before any important run.
-3. After the next run, compare performance against previous days side by side.
-4. Plan a multi-booking test on non-critical classes:
+1. Upload and verify config before any important run.
+2. After the next run, compare performance against previous days side by side.
+3. Plan a multi-booking test on non-critical classes:
    - fewer than 5 advance bookings first;
    - 3+ classes on the same site;
    - avoid mixing Yoga/Fitness unless testing cross-site behavior.
-5. Clean expired one-offs when the user is ready.
+4. Clean expired one-offs when the user is ready.

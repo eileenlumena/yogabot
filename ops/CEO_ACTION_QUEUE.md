@@ -8,7 +8,7 @@ Last updated: 2026-05-13
    - Owner thread: Product / Booking Engine.
    - Why it matters: GitHub would make version history, rollback, and thread handoff cleaner, but the live config contains secrets and must be excluded first.
    - Recommended decision: yes, but private only, with `.gitignore` and a sanitized example config.
-   - Status: Eileen asked Product to do this. Local Git setup is being done first; GitHub push still needs a private repo/auth route because `gh` is not installed locally.
+   - Status: done. Private GitHub repo is configured at `https://github.com/eileenlumena/yogabot.git` and local `main` is synced with `origin/main`.
 
 ## Protocol
 

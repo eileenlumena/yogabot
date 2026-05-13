@@ -4,44 +4,19 @@ Last updated: 2026-05-13
 
 ## For Eileen
 
-1. Push the already-created safe local Git baseline to GitHub from Mac Terminal.
-
-```bash
-cd "/Users/eileenmac/Documents/Yoga Booking Bot"
-git push -u origin main
-```
-
-GitHub will not accept the normal account password here. Use one of:
-
-- GitHub personal access token as the password;
-- SSH remote/key setup;
-- GitHub CLI login if `gh` is installed.
-
-Direct token page if `Developer settings` is hard to find:
-
-```text
-https://github.com/settings/personal-access-tokens/new
-```
-
-The remote is already configured as:
-
-```text
-https://github.com/eileenlumena/yogabot.git
-```
-
-2. Upload the latest local config to the SG server before the 2026-05-14 booking run if you want the new 2026-05-19 targets active on the server.
+1. Upload the latest local config to the SG server before the 2026-05-14 booking run if you want the new 2026-05-19 targets active on the server.
 
 ```bash
 scp "/Users/eileenmac/Documents/Yoga Booking Bot/pure_yoga_config.json" root@45.77.249.30:/root/PureYogaBot/pure_yoga_config.json
 ```
 
-3. Verify the server config timestamp after upload.
+2. Verify the server config timestamp after upload.
 
 ```bash
 ssh root@45.77.249.30 'stat -c "%y" /root/PureYogaBot/pure_yoga_config.json'
 ```
 
-4. After the 2026-05-14 run, share the log if you want Product / Booking Engine to compare performance side by side against previous runs.
+3. After the 2026-05-14 run, share the log if you want Product / Booking Engine to compare performance side by side against previous runs.
 
 ## For Product / Booking Engine
 
