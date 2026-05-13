@@ -11,6 +11,12 @@ cd "/Users/eileenmac/Documents/Yoga Booking Bot"
 git push -u origin main
 ```
 
+GitHub will not accept the normal account password here. Use one of:
+
+- GitHub personal access token as the password;
+- SSH remote/key setup;
+- GitHub CLI login if `gh` is installed.
+
 The remote is already configured as:
 
 ```text

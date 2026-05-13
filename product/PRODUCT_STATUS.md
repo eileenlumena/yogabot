@@ -18,7 +18,9 @@ Last updated: 2026-05-13
 - `.gitignore` excludes live config, logs, bundles, caches, and generated artifacts.
 - Eileen can use either an existing GitHub account or a new GitHub account, as long as the repo is private and secrets remain untracked.
 - GitHub remote is configured as `https://github.com/eileenlumena/yogabot.git`.
-- Push from Codex was blocked by GitHub credential prompting; Eileen needs to run `git push -u origin main` in Mac Terminal or provide an authenticated route.
+- Push from Codex was blocked by GitHub credential prompting.
+- Eileen tried HTTPS username/password push; GitHub rejected it because password authentication is no longer supported for Git operations.
+- Next GitHub auth path should use either a personal access token, SSH key, or GitHub CLI login.
 
 ## Current State
 
