@@ -21,6 +21,7 @@ Last updated: 2026-05-13
 - Push from Codex was blocked by GitHub credential prompting.
 - Eileen tried HTTPS username/password push; GitHub rejected it because password authentication is no longer supported for Git operations.
 - Next GitHub auth path should use either a personal access token, SSH key, or GitHub CLI login.
+- Eileen could not see `Developer settings` in the visible GitHub settings sidebar; direct fine-grained token URL was provided in `ops/NEXT_ACTIONS.md`.
 
 ## Current State
 

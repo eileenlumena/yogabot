@@ -17,6 +17,12 @@ GitHub will not accept the normal account password here. Use one of:
 - SSH remote/key setup;
 - GitHub CLI login if `gh` is installed.
 
+Direct token page if `Developer settings` is hard to find:
+
+```text
+https://github.com/settings/personal-access-tokens/new
+```
+
 The remote is already configured as:
 
 ```text
