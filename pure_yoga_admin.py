@@ -13,7 +13,8 @@ from typing import Any
 
 
 BASE_DIR = Path(__file__).resolve().parent
-CONFIG_PATH = BASE_DIR / "pure_yoga_config.json"
+LIVE_CONFIG_PATH = BASE_DIR / "pure_yoga_config.json"
+CONFIG_PATH = BASE_DIR / "pure_yoga_config.dev.json"
 BOT_PATH = BASE_DIR / "pure_yoga_booking.py"
 
 LOCATION_OPTIONS = [
@@ -190,7 +191,7 @@ HTML = r"""<!doctype html>
   <header>
     <div>
       <h1>Pure Booking Admin</h1>
-      <div class="muted">Local config editor for one-off and recurring targets</div>
+      <div class="muted">Local dev config editor for one-off and recurring targets</div>
     </div>
     <div id="summary" class="mono"></div>
   </header>
@@ -313,7 +314,7 @@ HTML = r"""<!doctype html>
 
     <section>
       <h2>Server Upload</h2>
-      <p class="muted">Run this in your Mac terminal after saving config changes.</p>
+      <p class="muted">UI testing writes to the dev config by default. Do not upload dev changes unless Product has reviewed them.</p>
       <textarea readonly rows="2">scp "/Users/eileenmac/Documents/Yoga Booking Bot/pure_yoga_config.json" root@45.77.249.30:/root/PureYogaBot/pure_yoga_config.json</textarea>
     </section>
   </main>
@@ -637,6 +638,7 @@ HTML = r"""<!doctype html>
 
 
 def load_config() -> dict[str, Any]:
+    ensure_config_exists()
     with CONFIG_PATH.open("r", encoding="utf-8") as handle:
         return json.load(handle)
 
@@ -645,6 +647,14 @@ def save_config(config: dict[str, Any]) -> None:
     with CONFIG_PATH.open("w", encoding="utf-8") as handle:
         json.dump(config, handle, indent=2, ensure_ascii=False)
         handle.write("\n")
+
+
+def ensure_config_exists() -> None:
+    if CONFIG_PATH.exists():
+        return
+    if not LIVE_CONFIG_PATH.exists():
+        raise FileNotFoundError(f"Config file not found: {CONFIG_PATH}")
+    CONFIG_PATH.write_text(LIVE_CONFIG_PATH.read_text(encoding="utf-8"), encoding="utf-8")
 
 
 def public_config(config: dict[str, Any]) -> dict[str, Any]:
@@ -676,6 +686,9 @@ def public_config(config: dict[str, Any]) -> dict[str, Any]:
     return {
         "ok": True,
         "target_count": len(targets),
+        "config_path": str(CONFIG_PATH),
+        "live_config_path": str(LIVE_CONFIG_PATH),
+        "is_live_config": CONFIG_PATH == LIVE_CONFIG_PATH,
         "targets": targets,
         "booking": {
             "aggressive_probe_lead_ms": config.get("booking", {}).get("aggressive_probe_lead_ms"),
@@ -911,13 +924,26 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> int:
+    global CONFIG_PATH
     parser = argparse.ArgumentParser(description="Local admin UI for Pure Yoga booking config.")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8501)
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=CONFIG_PATH,
+        help=(
+            "Config file for UI reads/writes. Defaults to pure_yoga_config.dev.json "
+            "so UI testing does not affect the live booking config."
+        ),
+    )
     args = parser.parse_args()
+    CONFIG_PATH = args.config if args.config.is_absolute() else BASE_DIR / args.config
+    ensure_config_exists()
 
     server = ThreadingHTTPServer((args.host, args.port), Handler)
-    print(f"Pure Booking Admin running at http://{args.host}:{args.port}/")
+    mode = "LIVE CONFIG" if CONFIG_PATH == LIVE_CONFIG_PATH else "dev config"
+    print(f"Pure Booking Admin running at http://{args.host}:{args.port}/ ({mode}: {CONFIG_PATH})")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

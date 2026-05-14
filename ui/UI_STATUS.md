@@ -9,6 +9,7 @@ The UI is halfway built and usable locally. It is not production-grade yet.
 Working:
 
 - Local browser UI at `http://127.0.0.1:8501/`.
+- Default UI save path is now `pure_yoga_config.dev.json`, so UI testing does not affect the live booking config.
 - Current target table.
 - One-off target creation.
 - Recurring target creation.
@@ -38,6 +39,8 @@ cd "/Users/eileenmac/Documents/Yoga Booking Bot"
 python3 pure_yoga_admin.py --host 127.0.0.1 --port 8501
 ```
 
+This defaults to dev config mode. Live config editing requires an explicit `--config pure_yoga_config.json` and should not be used for UI testing.
+
 ## Current Verification
 
 ```bash
@@ -47,5 +50,4 @@ python3 -m json.tool pure_yoga_config.json
 
 ## Main Risk
 
-The UI writes directly to the real local config. A bad UI save can alter tomorrow's booking behavior. Until edit/preview/duplicate protection is added, verify active targets before upload.
-
+The UI no longer writes to the real local config by default. The remaining risk is accidentally running it with `--config pure_yoga_config.json` or manually copying dev config into live config without review.

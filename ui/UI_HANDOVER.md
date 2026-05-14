@@ -7,6 +7,7 @@ Last updated: 2026-05-13
 Current UI implementation:
 
 - `pure_yoga_admin.py`
+- `pure_yoga_config.dev.json` is the default UI test config at runtime. It is created from the live config if missing and is ignored by Git.
 
 Supporting files the UI reads or calls:
 
@@ -28,7 +29,7 @@ There is no `templates/`, `static/`, React app, Streamlit app, database, or sepa
 The local UI can:
 
 - run in a browser at `http://127.0.0.1:8501/`;
-- show current targets from `pure_yoga_config.json`;
+- show current targets from the selected UI config;
 - add one-off booking targets;
 - auto-generate Booking Run Date from Class Date by subtracting 5 days;
 - add recurring targets;
@@ -58,6 +59,7 @@ Known gaps:
 - Live search depends on network access to Pure.
 - There are no browser automation tests.
 - There is no authentication; it is intended for local use only.
+- The UI still displays a live server upload command. This is intentional caution text now, but the UI should eventually make dev-vs-live mode more visually obvious.
 
 Potential UX issue:
 
@@ -65,10 +67,19 @@ Potential UX issue:
 
 ## 4. How The UI Connects To Booking Bot / Config
 
-The UI has hardcoded local paths:
+The UI has local paths:
 
-- `CONFIG_PATH = BASE_DIR / "pure_yoga_config.json"`
+- `LIVE_CONFIG_PATH = BASE_DIR / "pure_yoga_config.json"`
+- `CONFIG_PATH = BASE_DIR / "pure_yoga_config.dev.json"` by default
 - `BOT_PATH = BASE_DIR / "pure_yoga_booking.py"`
+
+The UI can be pointed at another config with:
+
+```bash
+python3 pure_yoga_admin.py --config some_config.json
+```
+
+Do not use `--config pure_yoga_config.json` for UI testing unless Product explicitly wants to edit the live local booking config.
 
 Config flow:
 
@@ -117,6 +128,14 @@ http://127.0.0.1:8501/
 
 If the browser says connection refused, the server is not running or another process stopped.
 
+Default mode writes to:
+
+```text
+pure_yoga_config.dev.json
+```
+
+not the live booking config.
+
 ## 6. Commands / Tests That Verify It
 
 Syntax check:
@@ -129,6 +148,7 @@ Config JSON check:
 
 ```bash
 python3 -m json.tool pure_yoga_config.json
+python3 -m json.tool pure_yoga_config.dev.json
 ```
 
 Start UI:
@@ -201,4 +221,3 @@ Do not change:
 - credentials, Telegram tokens, or any secret-handling design.
 
 The UI may propose Product changes, but must not implement them directly without approval.
-

@@ -29,6 +29,7 @@ Last updated: 2026-05-13
 - Telegram notifications are cleaner than the original format: class id and generic success text were removed from user-facing final summaries.
 - The config supports `skip_booking_run_dates` for temporary schedule changes.
 - 2026-05-14 run booked all 5 active targets for 2026-05-19 successfully.
+- UI testing has been moved off the live config: `pure_yoga_admin.py` now defaults to `pure_yoga_config.dev.json`.
 
 ## Immediate Run Context
 

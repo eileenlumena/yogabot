@@ -1,5 +1,6 @@
 # Secrets / local live config
 pure_yoga_config.json
+pure_yoga_config.dev.json
 *.env
 .env
 
@@ -23,4 +24,3 @@ Codex Pet/
 .venv/
 venv/
 env/
-

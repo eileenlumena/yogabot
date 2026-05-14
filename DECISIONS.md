@@ -24,7 +24,8 @@ Last updated: 2026-05-13
 ## UI Decisions
 
 - The UI is currently a dependency-light local Python HTTP server, not a separate web framework.
-- The UI writes directly to `pure_yoga_config.json`.
+- The UI defaults to `pure_yoga_config.dev.json` so UI testing does not affect the live booking config.
+- The UI may be pointed at another config with `--config`; using `--config pure_yoga_config.json` is a live-config action and should be treated carefully.
 - The UI should not store, display, or edit credentials or Telegram tokens unless Product approves a security design.
 - Booking Run Date is derived from Class Date at 5 days before the class date.
 - Live class search can work with class date selected or with only a partial class name typed.

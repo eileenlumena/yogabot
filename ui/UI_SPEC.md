@@ -8,6 +8,8 @@ Give Eileen a simple local control panel to manage booking classes without editi
 
 The UI should be safe, clear, and boring. It should reduce accidental wrong bookings.
 
+Until fully ready, the UI is a testing surface and must write to `pure_yoga_config.dev.json` by default, not the live booking config.
+
 ## User Workflows
 
 ### Add One-Off Class
@@ -115,6 +117,7 @@ Mode:
 ## Safety Requirements
 
 - Never display credentials or Telegram token/chat id.
+- Default UI testing must not mutate `pure_yoga_config.json`.
 - Never edit booking timing settings from the UI unless Product approves.
 - Warn before cleaning expired targets.
 - Add duplicate detection before further UI expansion.
@@ -127,4 +130,3 @@ Mode:
 - Keep it dense, calm, and scannable.
 - Prioritize target verification, warnings, and upload confidence.
 - Avoid decorative UI that hides the booking-critical data.
-
