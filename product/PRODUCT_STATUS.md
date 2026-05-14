@@ -28,20 +28,27 @@ Last updated: 2026-05-13
 - The engine has useful timing logs for warmup RTT, booking RTT, focus/follower spacing, queue proxy, CloudFront POP, and response metadata.
 - Telegram notifications are cleaner than the original format: class id and generic success text were removed from user-facing final summaries.
 - The config supports `skip_booking_run_dates` for temporary schedule changes.
+- 2026-05-14 run booked all 5 active targets for 2026-05-19 successfully.
 
 ## Immediate Run Context
 
-Tomorrow's intended booking run is 2026-05-14 for 2026-05-19 classes.
+Latest analyzed booking run: 2026-05-14 for 2026-05-19 classes.
 
-Local config currently includes five active targets for that run:
+Outcome:
 
-- Yoga 10:00 `Reformer Signature`, Kelvin Teo, Yoga - Ngee Ann City.
-- Yoga 12:15 `Specialised: Wall Rope`, Dagge Ong, Yoga - Ngee Ann City.
-- Yoga 13:30 `Specialised: Yogasthenics`, Wen Wen Chen, Yoga - Ngee Ann City.
-- Fitness 18:45 `RPM™`, Ayu Astutik, Fitness - Asia Square Tower 1.
-- Fitness 17:45 `BODYCOMBAT™`, House Chaalane, Fitness - Ngee Ann City.
+- BOOKED Yoga 12:15 `Specialised: Wall Rope`, Dagge Ong, Yoga - Ngee Ann City.
+- BOOKED Yoga 10:00 `Reformer Signature`, Kelvin Teo, Yoga - Ngee Ann City.
+- BOOKED Yoga 13:30 `Specialised: Yogasthenics`, Wen Wen Chen, Yoga - Ngee Ann City.
+- BOOKED Fitness 18:45 `RPM™`, Ayu Astutik, Fitness - Asia Square Tower 1.
+- BOOKED Fitness 17:45 `BODYCOMBAT™`, House Chaalane, Fitness - Ngee Ann City.
 
-The server may not have this latest config unless it has been uploaded.
+Important metrics:
+
+- Yoga sent focus at 08:59:59.800 and followers at about 08:59:59.920.
+- Yoga focus send delta was 120.3ms against configured 120ms; residual jitter was +0.3ms.
+- Yoga warmup RTT was elevated at 218.6ms.
+- Yoga queue proxy was +2299.1ms focus / +2015.4ms follower.
+- Fitness was handled after Yoga because multi-site runs are sequential to avoid session replacement; fitness booking requests sent at about 09:00:05.085 and both booked.
 
 ## Known Issues / Risks
 

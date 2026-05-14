@@ -4,19 +4,11 @@ Last updated: 2026-05-13
 
 ## For Eileen
 
-1. Upload the latest local config to the SG server before the 2026-05-14 booking run if you want the new 2026-05-19 targets active on the server.
+1. For the next booking change, update local config first, then upload to the SG server and verify timestamp.
 
-```bash
-scp "/Users/eileenmac/Documents/Yoga Booking Bot/pure_yoga_config.json" root@45.77.249.30:/root/PureYogaBot/pure_yoga_config.json
-```
+2. If any future Fitness class is highly important at the 9:00 edge, decide whether to avoid mixing Yoga and Fitness in the same run because current multi-site behavior books the second site only after the first site finishes.
 
-2. Verify the server config timestamp after upload.
-
-```bash
-ssh root@45.77.249.30 'stat -c "%y" /root/PureYogaBot/pure_yoga_config.json'
-```
-
-3. After the 2026-05-14 run, share the log if you want Product / Booking Engine to compare performance side by side against previous runs.
+3. Continue comparing future runs side by side, not as single-day metrics.
 
 ## For Product / Booking Engine
 
