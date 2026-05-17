@@ -4,7 +4,7 @@ Last updated: 2026-05-13
 
 ## For Eileen
 
-1. Upload the restored live config to the SG server so the recurring Friday `Mat: Classical Pilates` target exists on the running bot.
+1. Upload the updated live config to the SG server so the restored Friday Pilates target and the new permanent/one-off targets exist on the running bot.
 
 ```bash
 scp "/Users/eileenmac/Documents/Yoga Booking Bot/pure_yoga_config.json" root@45.77.249.30:/root/PureYogaBot/pure_yoga_config.json

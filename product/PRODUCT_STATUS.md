@@ -31,6 +31,7 @@ Last updated: 2026-05-13
 - 2026-05-14 run booked all 5 active targets for 2026-05-19 successfully.
 - UI testing has been moved off the live config: `pure_yoga_admin.py` now defaults to `pure_yoga_config.dev.json`.
 - 2026-05-17 issue: no Friday `Mat: Classical Pilates` booking happened because the live local config was missing the recurring Friday Pilates target. Local live config has been restored with `Mat: Classical Pilates` 11:15, April Lu, Yoga - Ngee Ann City.
+- 2026-05-17 config update: added recurring Mon Yogasthenics Foundation 16:30, Tue Wall Rope 12:15, Tue Yogasthenics 13:30, Thu Upside Down 09:45, Sat Fitness Calisthenics 12:00, Sat Sound Bath Therapy 15:30; removed Sat Yin Yoga 14:15; added one-off 2026-05-23 Yin-Yang 13:45 by Sandy Shum.
 
 ## Immediate Run Context
 
