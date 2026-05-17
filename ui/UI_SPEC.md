@@ -53,7 +53,7 @@ Expected future behavior:
    - duplicates;
    - cross-site sequencing;
    - more than 2 or 3 classes;
-   - possible Pure advance-booking cap risk.
+   - Pure booking-limit warnings.
 
 ### Server Upload
 
@@ -114,11 +114,37 @@ Mode:
 
 - Default to `book_all`.
 
+## Booking Limit Warning Rules
+
+Pure limits members to:
+
+- maximum 6 Yoga classes within a continuous 5-day period;
+- maximum 6 Pilates classes within a continuous 5-day period;
+- maximum 6 Fitness classes within a continuous 5-day period;
+- maximum 2 bookings per class type per class date.
+
+The UI should classify planned targets as Yoga, Pilates, or Fitness.
+
+Current config uses `site: "fitness"` for Fitness and `site: "yoga"` for both Yoga and Pilates. Pilates should be detected by Product-approved class mappings, including class names such as `Reformer` and `Pilates`.
+
+The UI should warn:
+
+- before saving a target if it would exceed a daily class-type limit;
+- before saving a target if it would exceed a rolling 5-day class-type limit;
+- in Active Run Preview when currently planned targets are already over limits.
+
+Start with warnings, not hard blocks. Product can later decide which warnings should become blocking.
+
+Known limitation:
+
+- The UI can count planned targets in config, but it does not yet know classes manually booked outside the bot unless the user enters them or the bot can fetch account bookings.
+
 ## Safety Requirements
 
 - Never display credentials or Telegram token/chat id.
 - Default UI testing must not mutate `pure_yoga_config.json`.
 - Never edit booking timing settings from the UI unless Product approves.
+- Warn when planned targets exceed Pure booking limits.
 - Warn before cleaning expired targets.
 - Add duplicate detection before further UI expansion.
 - Add active-run preview before relying on UI for important bookings.

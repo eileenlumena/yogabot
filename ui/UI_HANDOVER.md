@@ -55,6 +55,7 @@ Known gaps:
 - The UI does not verify server config timestamp or content.
 - The UI does not show active targets for a chosen booking run date in a clean preview.
 - The UI does not protect against accidental creation of too many one-off test targets.
+- The UI does not yet warn about Pure's booking limits: 6 Yoga / 6 Pilates / 6 Fitness within a continuous 5-day period, and 2 per class type per day.
 - Search is limited to the selected site and selected location. It does not search every location/site at once.
 - Live search depends on network access to Pure.
 - There are no browser automation tests.
@@ -190,7 +191,7 @@ python3 pure_yoga_booking.py --config pure_yoga_config.json --lookup-only --targ
 1. Add an Active Run Preview.
    - User chooses a booking run date or class date.
    - UI shows exactly which targets will run.
-   - Include warnings for expired one-offs, duplicates, and cross-site runs.
+   - Include warnings for expired one-offs, duplicates, cross-site runs, and Pure booking limits.
 
 2. Add target edit/delete/disable controls.
    - Edit existing targets safely.

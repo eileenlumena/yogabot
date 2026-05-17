@@ -10,7 +10,7 @@ Last updated: 2026-05-13
   - `ops/HANDOFFS.md`
   - `ops/CEO_ACTION_QUEUE.md`
   - `ops/NEXT_ACTIONS.md`
-- Active cross-thread handoffs: none.
+- Active cross-thread handoffs: UI booking-limit warning request in `ops/HANDOFFS.md`.
 - CEO action queue items from Product: none.
 - Current user next actions are in `ops/NEXT_ACTIONS.md`.
 - Latest discussion: GitHub is recommended only as a private repo after secrets and generated/local files are excluded.
@@ -32,6 +32,8 @@ Last updated: 2026-05-13
 - UI testing has been moved off the live config: `pure_yoga_admin.py` now defaults to `pure_yoga_config.dev.json`.
 - 2026-05-17 issue: no Friday `Mat: Classical Pilates` booking happened because the live local config was missing the recurring Friday Pilates target. Local live config has been restored with `Mat: Classical Pilates` 11:15, April Lu, Yoga - Ngee Ann City.
 - 2026-05-17 config update: added recurring Mon Yogasthenics Foundation 16:30, Tue Wall Rope 12:15, Tue Yogasthenics 13:30, Thu Upside Down 09:45, Sat Fitness Calisthenics 12:00, Sat Sound Bath Therapy 15:30; removed Sat Yin Yoga 14:15 and Sat Yoga Therapy 12:30; added one-off 2026-05-23 Yin-Yang 13:45 by Sandy Shum.
+- Eileen uploaded the latest live config to the SG server after the 2026-05-17 updates.
+- New Product constraint captured for UI: Pure allows max 6 Yoga, 6 Pilates, and 6 Fitness bookings in any continuous 5-day period, plus max 2 bookings per class type per day.
 
 ## Immediate Run Context
 

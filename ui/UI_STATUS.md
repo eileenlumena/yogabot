@@ -31,6 +31,7 @@ Incomplete:
 - No clean active-run preview.
 - No automated browser tests.
 - No UI-level protection around important classes vs test classes.
+- No booking-limit warning yet for Pure's 6-per-5-day and 2-per-day class-type limits.
 
 ## Current Run Command
 

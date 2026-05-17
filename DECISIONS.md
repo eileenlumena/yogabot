@@ -20,6 +20,11 @@ Last updated: 2026-05-13
   - if the exact teacher is replaced but the same class/time/location exists, allow fallback to the replacement teacher.
 - Treat `booking_run_date` one-offs as temporary; expired one-offs can remain in config but should not be treated as active.
 - Use live lookup before important bookings where possible, because Pure can change names, teachers, times, and class availability.
+- Pure booking limits must be surfaced before live booking:
+  - maximum 6 Yoga classes within a continuous 5-day period;
+  - maximum 6 Pilates classes within a continuous 5-day period;
+  - maximum 6 Fitness classes within a continuous 5-day period;
+  - daily maximum of 2 bookings per class type.
 
 ## UI Decisions
 
@@ -30,6 +35,7 @@ Last updated: 2026-05-13
 - Booking Run Date is derived from Class Date at 5 days before the class date.
 - Live class search can work with class date selected or with only a partial class name typed.
 - Recurring targets are supported, but recurring target editing/deleting is still incomplete.
+- UI should warn when planned targets exceed Pure booking limits before the config is copied/uploaded for live booking.
 
 ## Operational Decisions
 
