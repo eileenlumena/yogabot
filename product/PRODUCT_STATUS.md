@@ -30,6 +30,7 @@ Last updated: 2026-05-13
 - The config supports `skip_booking_run_dates` for temporary schedule changes.
 - 2026-05-14 run booked all 5 active targets for 2026-05-19 successfully.
 - UI testing has been moved off the live config: `pure_yoga_admin.py` now defaults to `pure_yoga_config.dev.json`.
+- 2026-05-17 issue: no Friday `Mat: Classical Pilates` booking happened because the live local config was missing the recurring Friday Pilates target. Local live config has been restored with `Mat: Classical Pilates` 11:15, April Lu, Yoga - Ngee Ann City.
 
 ## Immediate Run Context
 
@@ -54,6 +55,7 @@ Important metrics:
 ## Known Issues / Risks
 
 - Server config can fall behind local config.
+- Restored live config changes are not in Git because `pure_yoga_config.json` is intentionally ignored; they must be uploaded to SG server separately.
 - Expired one-off targets clutter the config.
 - Multi-site runs handle Yoga and Fitness one after another, so they are not the cleanest test of exact 9:00 same-site parallel timing.
 - Pure may enforce an advance-booking limit by category/account; this can look like a bot failure if not controlled.

@@ -4,11 +4,21 @@ Last updated: 2026-05-13
 
 ## For Eileen
 
-1. For the next booking change, update local config first, then upload to the SG server and verify timestamp.
+1. Upload the restored live config to the SG server so the recurring Friday `Mat: Classical Pilates` target exists on the running bot.
 
-2. If any future Fitness class is highly important at the 9:00 edge, decide whether to avoid mixing Yoga and Fitness in the same run because current multi-site behavior books the second site only after the first site finishes.
+```bash
+scp "/Users/eileenmac/Documents/Yoga Booking Bot/pure_yoga_config.json" root@45.77.249.30:/root/PureYogaBot/pure_yoga_config.json
+```
 
-3. Continue comparing future runs side by side, not as single-day metrics.
+2. Verify the server config timestamp after upload.
+
+```bash
+ssh root@45.77.249.30 'stat -c "%y" /root/PureYogaBot/pure_yoga_config.json'
+```
+
+3. If any future Fitness class is highly important at the 9:00 edge, decide whether to avoid mixing Yoga and Fitness in the same run because current multi-site behavior books the second site only after the first site finishes.
+
+4. Continue comparing future runs side by side, not as single-day metrics.
 
 ## For Product / Booking Engine
 
