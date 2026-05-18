@@ -36,6 +36,7 @@ Last updated: 2026-05-18
 - New Product constraint captured for UI: Pure allows max 6 Yoga, 6 Pilates, and 6 Fitness bookings in any continuous 5-day period, plus max 2 bookings per class type per day.
 - Booking engine now has Telegram pre-run warnings for booking-limit issues, schedule `NO_MATCH`, and replacement-teacher fallback. Warnings are sent after schedule lookup and before the sleep/login/warmup phase.
 - Existing account bookings are now fetched read-only from Pure's `get_booking_history` endpoint before warnings are calculated, so Telegram limit warnings include booked, waitlisted, and signed-in classes in the relevant window plus config-planned targets.
+- Added `--warnings-only` mode so SG server can run an evening planning check without sending booking requests. The morning run still keeps its last-minute warning as backup.
 
 ## Immediate Run Context
 
@@ -71,7 +72,7 @@ Important metrics:
 ## Next Product Tasks
 
 1. Upload `pure_yoga_booking.py` to the SG server before relying on the latest Telegram pre-run warnings there.
-2. Watch the next live run to confirm the existing-booking warning check completes cleanly before the sleep/login/warmup phase.
+2. Add a separate SG server cron for `--warnings-only`, preferably the evening before the 9am booking run.
 3. Upload and verify config before any important run.
 4. After the next run, compare performance against previous days side by side.
 5. Plan a multi-booking test on non-critical classes:

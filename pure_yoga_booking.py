@@ -1806,7 +1806,7 @@ class PureYogaBot:
             else:
                 message = "No configured targets are active for this run's rolling target date."
             self.log(message)
-            if not args.lookup_only and not args.dry_run:
+            if not args.lookup_only and not args.dry_run and not args.warnings_only:
                 self.notify_summary([f"Pure booking run skipped", message])
             return 0
 
@@ -1879,6 +1879,10 @@ class PureYogaBot:
                     "Continuing with config-only booking-limit warnings."
                 )
             self.notify_pre_run_warnings(target_date, active_targets, resolved, existing_occurrences)
+
+        if args.warnings_only:
+            self.log("Warnings-only mode complete. No booking requests will be sent.")
+            return 0
 
         if args.lookup_only:
             self.log("Lookup-only mode complete.")
@@ -2253,6 +2257,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Resolve active targets, test login on the required site(s), then exit before booking.",
     )
     parser.add_argument(
+        "--warnings-only",
+        action="store_true",
+        help="Resolve active targets, send Telegram warnings if needed, then exit before booking.",
+    )
+    parser.add_argument(
         "--list-classes",
         action="store_true",
         help="Print every class returned for the active site(s) and target date.",
@@ -2272,9 +2281,10 @@ def main() -> int:
         return bot.run(args)
     except requests.exceptions.SSLError as exc:
         if not args.lookup_only and not args.dry_run:
+            failure_title = "Pure warning check failed" if args.warnings_only else "Pure booking run failed"
             safe_notify_from_config(
                 config,
-                f"Pure booking run failed with SSL verification error.\n{type(exc).__name__}: {exc}",
+                f"{failure_title} with SSL verification error.\n{type(exc).__name__}: {exc}",
             )
         print(
             "SSL verification failed. If your VPS is missing CA certificates, "
@@ -2285,15 +2295,17 @@ def main() -> int:
         return 1
     except requests.RequestException as exc:
         if not args.lookup_only and not args.dry_run:
+            failure_title = "Pure warning check failed" if args.warnings_only else "Pure booking run failed"
             safe_notify_from_config(
                 config,
-                f"Pure booking run failed with network error.\n{type(exc).__name__}: {exc}",
+                f"{failure_title} with network error.\n{type(exc).__name__}: {exc}",
             )
         print(f"Network error: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
     except (PureYogaError, json.JSONDecodeError) as exc:
         if not args.lookup_only and not args.dry_run:
-            safe_notify_from_config(config, f"Pure booking run failed.\n{type(exc).__name__}: {exc}")
+            failure_title = "Pure warning check failed" if args.warnings_only else "Pure booking run failed"
+            safe_notify_from_config(config, f"{failure_title}.\n{type(exc).__name__}: {exc}")
         print(str(exc), file=sys.stderr)
         return 1
 

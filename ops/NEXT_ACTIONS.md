@@ -10,11 +10,18 @@ Last updated: 2026-05-18
 scp "/Users/eileenmac/Documents/Yoga Booking Bot/pure_yoga_booking.py" root@45.77.249.30:/root/PureYogaBot/pure_yoga_booking.py
 ```
 
-2. If any future Fitness class is highly important at the 9:00 edge, decide whether to avoid mixing Yoga and Fitness in the same run because current multi-site behavior books the second site only after the first site finishes.
+2. Add a separate evening warning-only cron on the SG server after uploading the code.
 
-3. Watch the next Telegram pre-run warning, if any, to confirm it makes sense with the current My Bookings page.
+```bash
+cd /root/PureYogaBot
+python3 pure_yoga_booking.py --config pure_yoga_config.json --warnings-only
+```
 
-4. Continue comparing future runs side by side, not as single-day metrics.
+3. If any future Fitness class is highly important at the 9:00 edge, decide whether to avoid mixing Yoga and Fitness in the same run because current multi-site behavior books the second site only after the first site finishes.
+
+4. Watch the next Telegram pre-run warning, if any, to confirm it makes sense with the current My Bookings page.
+
+5. Continue comparing future runs side by side, not as single-day metrics.
 
 ## For Product / Booking Engine
 
