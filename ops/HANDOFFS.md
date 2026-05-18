@@ -1,6 +1,6 @@
 # Handoffs
 
-Last updated: 2026-05-13
+Last updated: 2026-05-18
 
 ## Active Handoffs
 
@@ -20,7 +20,7 @@ Last updated: 2026-05-13
    Context: Telegram pre-run warnings currently count planned config targets only. Existing manual bookings would make limit warnings more accurate, but extra account calls should not disturb the booking session near 9am.
    Required output: Identify a safe endpoint and timing strategy, or document that the feature should wait.
    Urgency: Medium.
-   Status: open.
+   Status: resolved by Product on 2026-05-18. Safe read-only endpoint identified as `GET /api/v3/get_booking_history`; booking engine now fetches it before pre-run warning calculation and continues with config-only warnings if the fetch fails.
 
 ## Protocol
 

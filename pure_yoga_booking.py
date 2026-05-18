@@ -87,6 +87,7 @@ BUTTON_STATUS_BOOKED = 2
 BUTTON_STATUS_WAITLIST = 3
 BUTTON_STATUS_IN_WAITLIST = 4
 BUTTON_STATUS_FULL = 5
+BUTTON_STATUS_SIGNED_IN = 7
 BUTTON_STATUS_LAST_CHANCE = 16
 
 TARGET_DEFAULTS: dict[str, Any] = {
@@ -144,6 +145,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "max_booking_retries": 25,
         "retry_interval_ms": 50,
         "latency_warning_warmup_rtt_ms": 150,
+        "include_existing_bookings_in_limit_warnings": True,
         "book_all_submission_strategy": "focus_first",
         "focus_first_head_start_ms": 120,
         "parallel_book_all_submissions": True,
@@ -271,11 +273,42 @@ class PlannedOccurrence:
     class_type: str
 
 
+@dataclass(frozen=True)
+class ExistingBookingOccurrence:
+    class_date: date
+    start_time: str
+    class_name: str
+    location_name: str
+    class_type: str
+    status: str
+
+
 def booking_limit_class_type(target: TargetSpec) -> str:
     if normalize_text(target.site) == "fitness":
         return "Fitness"
 
     class_name = normalize_text(target.class_name)
+    if any(marker in class_name for marker in ("reformer", "pilates")):
+        return "Pilates"
+    return "Yoga"
+
+
+def booking_limit_class_type_from_booking(item: dict[str, Any]) -> str:
+    class_item = item.get("class") or item
+    sector = normalize_text(str(item.get("sector") or class_item.get("sector") or ""))
+    location = class_item.get("location") or {}
+    location_name = str(
+        location.get("name")
+        or (location.get("names") or {}).get("en")
+        or class_item.get("location_name")
+        or ""
+    )
+    class_type = class_item.get("class_type") or {}
+    class_name = normalize_text(
+        str(class_type.get("name") or class_item.get("class_name") or class_item.get("name") or "")
+    )
+    if sector in {"f", "fitness"} or normalize_text(location_name).startswith("fitness"):
+        return "Fitness"
     if any(marker in class_name for marker in ("reformer", "pilates")):
         return "Pilates"
     return "Yoga"
@@ -739,6 +772,25 @@ class SiteClient:
         if code != 200:
             raise PureYogaAPIError(code, message)
         return payload.get("data", {}).get("classes", [])
+
+    def fetch_booking_history(self, start_date: date, end_date: date, *, history_type: str = "all") -> list[dict[str, Any]]:
+        payload, _, code, message = self.request_json(
+            "GET",
+            "get_booking_history",
+            params={
+                "region_id": self.bot.region_id,
+                "language_id": self.bot.language_id,
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "page": 1,
+                "per_page": 999,
+                "type": history_type,
+                "api_version": 3,
+            },
+        )
+        if code != 200:
+            raise PureYogaAPIError(code, message)
+        return payload.get("data", {}).get("bookings", [])
 
     def format_class_line(self, item: dict[str, Any], fallback_location_name: str = "") -> str:
         class_type = item.get("class_type", {})
@@ -1559,14 +1611,100 @@ class PureYogaBot:
                 )
         return occurrences
 
-    def booking_limit_warning_lines(self, active_targets: list[tuple[TargetSpec, date, datetime]]) -> list[str]:
+    def existing_booking_occurrences_for_window(
+        self,
+        active_targets: list[tuple[TargetSpec, date, datetime]],
+        start_date: date,
+        end_date: date,
+    ) -> list[ExistingBookingOccurrence]:
+        if not bool(self.booking.get("include_existing_bookings_in_limit_warnings", True)):
+            return []
+
+        location_ids = sorted({target.location_id for target, _, _ in active_targets if target.location_id})
+        site = "yoga"
+        if active_targets and not any(target.site == "yoga" for target, _, _ in active_targets):
+            site = active_targets[0][0].site
+
+        client = SiteClient(self, site, location_ids)
+        client.bootstrap_and_login(self.config["credentials"], context="Existing bookings warning check")
+        bookings = client.fetch_booking_history(start_date, end_date, history_type="all")
+
+        occurrences: list[ExistingBookingOccurrence] = []
+        for booking in bookings:
+            class_item = booking.get("class") or {}
+            class_date = parse_date_or_blank(str(class_item.get("start_date", "")).strip())
+            if not class_date or class_date < start_date or class_date > end_date:
+                continue
+
+            button_status = safe_int(booking.get("button_status"))
+            if button_status not in {
+                BUTTON_STATUS_BOOKED,
+                BUTTON_STATUS_IN_WAITLIST,
+                BUTTON_STATUS_SIGNED_IN,
+            }:
+                continue
+
+            class_type = class_item.get("class_type") or {}
+            location = class_item.get("location") or {}
+            location_name = str(
+                location.get("name")
+                or (location.get("names") or {}).get("en")
+                or class_item.get("location_name")
+                or ""
+            )
+            status = "waitlisted" if button_status == BUTTON_STATUS_IN_WAITLIST else "booked"
+            if button_status == BUTTON_STATUS_SIGNED_IN:
+                status = "signed in"
+            occurrences.append(
+                ExistingBookingOccurrence(
+                    class_date=class_date,
+                    start_time=str(class_item.get("start_time_display") or class_item.get("start_time") or ""),
+                    class_name=str(class_type.get("name") or class_item.get("class_name") or "Unknown class"),
+                    location_name=location_name,
+                    class_type=booking_limit_class_type_from_booking(booking),
+                    status=status,
+                )
+            )
+
+        self.log(
+            f"Existing bookings warning check found {len(occurrences)} booked/waitlisted/signed-in "
+            f"class(es) from {start_date.isoformat()} to {end_date.isoformat()}."
+        )
+        return occurrences
+
+    def occurrence_key(self, item: PlannedOccurrence | ExistingBookingOccurrence) -> tuple[str, str, str, str]:
+        if isinstance(item, PlannedOccurrence):
+            return (
+                item.class_date.isoformat(),
+                normalize_time(item.target.start_time),
+                normalize_text(item.target.class_name),
+                normalize_text(item.target.location_name),
+            )
+        return (
+            item.class_date.isoformat(),
+            normalize_time(item.start_time),
+            normalize_text(item.class_name),
+            normalize_text(item.location_name),
+        )
+
+    def booking_limit_warning_lines(
+        self,
+        active_targets: list[tuple[TargetSpec, date, datetime]],
+        existing_occurrences: list[ExistingBookingOccurrence] | None = None,
+    ) -> list[str]:
         if not active_targets:
             return []
 
         active_dates = sorted({target_date for _, target_date, _ in active_targets})
         start_date = min(active_dates) - timedelta(days=4)
         end_date = max(active_dates) + timedelta(days=4)
-        occurrences = self.planned_occurrences_for_window(start_date, end_date)
+        planned_occurrences = self.planned_occurrences_for_window(start_date, end_date)
+        existing_occurrences = existing_occurrences or []
+        existing_keys = {self.occurrence_key(item) for item in existing_occurrences}
+        occurrences: list[PlannedOccurrence | ExistingBookingOccurrence] = list(existing_occurrences)
+        occurrences.extend(
+            item for item in planned_occurrences if self.occurrence_key(item) not in existing_keys
+        )
         warning_lines: list[str] = []
 
         for class_date in active_dates:
@@ -1575,7 +1713,8 @@ class PureYogaBot:
                 count = sum(1 for item in same_day if item.class_type == class_type)
                 if count > 2:
                     warning_lines.append(
-                        f"{class_date.isoformat()}: {count} planned {class_type} booking(s); Pure daily limit is 2."
+                        f"{class_date.isoformat()}: {count} {class_type} booking(s) already booked/waitlisted "
+                        "or planned; Pure daily limit is 2."
                     )
 
         window_start = start_date
@@ -1590,7 +1729,8 @@ class PureYogaBot:
                     if count > 6:
                         warning_lines.append(
                             f"{window_start.isoformat()} to {window_end.isoformat()}: "
-                            f"{count} planned {class_type} booking(s); Pure 5-day limit is 6."
+                            f"{count} {class_type} booking(s) already booked/waitlisted or planned; "
+                            "Pure 5-day limit is 6."
                         )
             window_start += timedelta(days=1)
 
@@ -1628,9 +1768,10 @@ class PureYogaBot:
         target_date: date,
         active_targets: list[tuple[TargetSpec, date, datetime]],
         resolved: list[ResolvedTarget],
+        existing_occurrences: list[ExistingBookingOccurrence] | None = None,
     ) -> None:
         sections: list[str] = []
-        limit_lines = self.booking_limit_warning_lines(active_targets)
+        limit_lines = self.booking_limit_warning_lines(active_targets, existing_occurrences)
         schedule_lines = self.schedule_change_warning_lines(resolved)
 
         if limit_lines:
@@ -1721,8 +1862,23 @@ class PureYogaBot:
                 else:
                     self.log(self.format_target_summary(result))
 
+        existing_occurrences: list[ExistingBookingOccurrence] = []
         if not args.lookup_only and not args.dry_run:
-            self.notify_pre_run_warnings(target_date, active_targets, resolved)
+            active_dates = sorted({target_date for _, target_date, _ in active_targets})
+            history_start = min(active_dates) - timedelta(days=4)
+            history_end = max(active_dates) + timedelta(days=4)
+            try:
+                existing_occurrences = self.existing_booking_occurrences_for_window(
+                    active_targets,
+                    history_start,
+                    history_end,
+                )
+            except Exception as exc:
+                self.log(
+                    f"Existing bookings warning check failed: {type(exc).__name__}: {exc}. "
+                    "Continuing with config-only booking-limit warnings."
+                )
+            self.notify_pre_run_warnings(target_date, active_targets, resolved, existing_occurrences)
 
         if args.lookup_only:
             self.log("Lookup-only mode complete.")

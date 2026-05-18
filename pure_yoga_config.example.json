@@ -134,6 +134,7 @@
     "waitlist_fallback": true,
     "max_booking_retries": 25,
     "retry_interval_ms": 50,
+    "include_existing_bookings_in_limit_warnings": true,
     "stop_after_first_priority_success": true,
     "continue_to_next_priority_on_waitlist": true
   },

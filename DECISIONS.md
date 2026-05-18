@@ -26,6 +26,7 @@ Last updated: 2026-05-13
   - maximum 6 Fitness classes within a continuous 5-day period;
   - daily maximum of 2 bookings per class type.
 - Booking engine should send Telegram pre-run warnings after schedule lookup and before the sleep/login/warmup phase, so warnings do not interfere with 9am booking speed.
+- Existing bookings can be fetched from Pure's read-only `get_booking_history` endpoint before pre-run warning calculation. The bot may use this to include manual bookings and waitlists in booking-limit warnings; if the fetch fails, the booking run must continue with config-only warnings.
 
 ## UI Decisions
 
