@@ -34,6 +34,8 @@ Last updated: 2026-05-13
 - 2026-05-17 config update: added recurring Mon Yogasthenics Foundation 16:30, Tue Wall Rope 12:15, Tue Yogasthenics 13:30, Thu Upside Down 09:45, Sat Fitness Calisthenics 12:00, Sat Sound Bath Therapy 15:30; removed Sat Yin Yoga 14:15 and Sat Yoga Therapy 12:30; added one-off 2026-05-23 Yin-Yang 13:45 by Sandy Shum.
 - Eileen uploaded the latest live config to the SG server after the 2026-05-17 updates.
 - New Product constraint captured for UI: Pure allows max 6 Yoga, 6 Pilates, and 6 Fitness bookings in any continuous 5-day period, plus max 2 bookings per class type per day.
+- Booking engine now has Telegram pre-run warnings for planned booking-limit issues, schedule `NO_MATCH`, and replacement-teacher fallback. Warnings are sent after schedule lookup and before the sleep/login/warmup phase.
+- Existing manual bookings are not fetched yet; booking-limit warnings count planned config targets only.
 
 ## Immediate Run Context
 
@@ -59,6 +61,7 @@ Important metrics:
 
 - Server config can fall behind local config.
 - Restored live config changes are not in Git because `pure_yoga_config.json` is intentionally ignored; they must be uploaded to SG server separately.
+- Telegram booking-limit warnings do not include classes manually booked outside the bot yet.
 - Expired one-off targets clutter the config.
 - Multi-site runs handle Yoga and Fitness one after another, so they are not the cleanest test of exact 9:00 same-site parallel timing.
 - Pure may enforce an advance-booking limit by category/account; this can look like a bot failure if not controlled.
@@ -67,10 +70,12 @@ Important metrics:
 
 ## Next Product Tasks
 
-1. Upload and verify config before any important run.
-2. After the next run, compare performance against previous days side by side.
-3. Plan a multi-booking test on non-critical classes:
+1. Upload `pure_yoga_booking.py` to the SG server before relying on Telegram pre-run warnings there.
+2. Inspect Pure account-booking endpoints separately before adding manual/existing booking counts.
+3. Upload and verify config before any important run.
+4. After the next run, compare performance against previous days side by side.
+5. Plan a multi-booking test on non-critical classes:
    - fewer than 5 advance bookings first;
    - 3+ classes on the same site;
    - avoid mixing Yoga/Fitness unless testing cross-site behavior.
-4. Clean expired one-offs when the user is ready.
+6. Clean expired one-offs when the user is ready.

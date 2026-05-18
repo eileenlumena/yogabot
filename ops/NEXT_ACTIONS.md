@@ -4,9 +4,15 @@ Last updated: 2026-05-13
 
 ## For Eileen
 
-1. If any future Fitness class is highly important at the 9:00 edge, decide whether to avoid mixing Yoga and Fitness in the same run because current multi-site behavior books the second site only after the first site finishes.
+1. Upload the updated booking engine to the SG server before relying on Telegram pre-run warnings there.
 
-2. Continue comparing future runs side by side, not as single-day metrics.
+```bash
+scp "/Users/eileenmac/Documents/Yoga Booking Bot/pure_yoga_booking.py" root@45.77.249.30:/root/PureYogaBot/pure_yoga_booking.py
+```
+
+2. If any future Fitness class is highly important at the 9:00 edge, decide whether to avoid mixing Yoga and Fitness in the same run because current multi-site behavior books the second site only after the first site finishes.
+
+3. Continue comparing future runs side by side, not as single-day metrics.
 
 ## For Product / Booking Engine
 

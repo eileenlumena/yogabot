@@ -13,6 +13,15 @@ Last updated: 2026-05-13
    Urgency: High for UI safety before relying on the control panel.
    Status: open.
 
+2. Date: 2026-05-18
+   From: Product / Booking Engine
+   To: Product / Booking Engine
+   Request: Investigate Pure existing-bookings/account-bookings endpoint before adding manual booking counts to Telegram/UI limit warnings.
+   Context: Telegram pre-run warnings currently count planned config targets only. Existing manual bookings would make limit warnings more accurate, but extra account calls should not disturb the booking session near 9am.
+   Required output: Identify a safe endpoint and timing strategy, or document that the feature should wait.
+   Urgency: Medium.
+   Status: open.
+
 ## Protocol
 
 - Use this file when Product / Booking Engine needs UI / Control Panel to do or answer something.

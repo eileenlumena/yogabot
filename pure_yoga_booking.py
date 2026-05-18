@@ -264,6 +264,23 @@ class BookingRequestTrace:
     response_server_timing: str = ""
 
 
+@dataclass(frozen=True)
+class PlannedOccurrence:
+    target: TargetSpec
+    class_date: date
+    class_type: str
+
+
+def booking_limit_class_type(target: TargetSpec) -> str:
+    if normalize_text(target.site) == "fitness":
+        return "Fitness"
+
+    class_name = normalize_text(target.class_name)
+    if any(marker in class_name for marker in ("reformer", "pilates")):
+        return "Pilates"
+    return "Yoga"
+
+
 @dataclass
 class TransportWarmupTrace:
     sent_at: str
@@ -1514,6 +1531,123 @@ class PureYogaBot:
             if note not in self.summary_notes:
                 self.summary_notes.append(note)
 
+    def planned_occurrences_for_window(self, start_date: date, end_date: date) -> list[PlannedOccurrence]:
+        occurrences: list[PlannedOccurrence] = []
+        targets = self.build_targets()
+        for target in targets:
+            if target.class_date:
+                class_dates = [target.class_date]
+            else:
+                class_dates = [
+                    start_date + timedelta(days=offset)
+                    for offset in range((end_date - start_date).days + 1)
+                    if (start_date + timedelta(days=offset)).weekday() in target.days
+                ]
+
+            for class_date in class_dates:
+                if class_date < start_date or class_date > end_date:
+                    continue
+                booking_run_date = class_date - timedelta(days=target.booking_open_days)
+                if booking_run_date in target.skip_booking_run_dates:
+                    continue
+                occurrences.append(
+                    PlannedOccurrence(
+                        target=target,
+                        class_date=class_date,
+                        class_type=booking_limit_class_type(target),
+                    )
+                )
+        return occurrences
+
+    def booking_limit_warning_lines(self, active_targets: list[tuple[TargetSpec, date, datetime]]) -> list[str]:
+        if not active_targets:
+            return []
+
+        active_dates = sorted({target_date for _, target_date, _ in active_targets})
+        start_date = min(active_dates) - timedelta(days=4)
+        end_date = max(active_dates) + timedelta(days=4)
+        occurrences = self.planned_occurrences_for_window(start_date, end_date)
+        warning_lines: list[str] = []
+
+        for class_date in active_dates:
+            same_day = [item for item in occurrences if item.class_date == class_date]
+            for class_type in ("Yoga", "Pilates", "Fitness"):
+                count = sum(1 for item in same_day if item.class_type == class_type)
+                if count > 2:
+                    warning_lines.append(
+                        f"{class_date.isoformat()}: {count} planned {class_type} booking(s); Pure daily limit is 2."
+                    )
+
+        window_start = start_date
+        while window_start <= end_date - timedelta(days=4):
+            window_end = window_start + timedelta(days=4)
+            if any(window_start <= active_date <= window_end for active_date in active_dates):
+                in_window = [
+                    item for item in occurrences if window_start <= item.class_date <= window_end
+                ]
+                for class_type in ("Yoga", "Pilates", "Fitness"):
+                    count = sum(1 for item in in_window if item.class_type == class_type)
+                    if count > 6:
+                        warning_lines.append(
+                            f"{window_start.isoformat()} to {window_end.isoformat()}: "
+                            f"{count} planned {class_type} booking(s); Pure 5-day limit is 6."
+                        )
+            window_start += timedelta(days=1)
+
+        return sorted(set(warning_lines))
+
+    def schedule_change_warning_lines(self, resolved: list[ResolvedTarget]) -> list[str]:
+        warning_lines: list[str] = []
+        for item in resolved:
+            if item.status == STATUS_NO_MATCH:
+                warning_lines.append(
+                    f"{item.target.class_name} {item.target.start_time} at {item.target.location_name}: "
+                    f"not matched. {item.message.splitlines()[0]}"
+                )
+                continue
+
+            if item.status != "MATCHED":
+                continue
+
+            message = item.message or ""
+            if "Falling back to replacement teacher" in message:
+                teacher = (
+                    (item.class_item or {}).get("teacher", {}).get("full_name")
+                    or (item.class_item or {}).get("teacher", {}).get("name")
+                    or "replacement teacher"
+                )
+                warning_lines.append(
+                    f"{item.target.class_name} {item.target.start_time} at {item.target.location_name}: "
+                    f"teacher changed from {item.target.teacher_name or 'named teacher'} to {teacher}."
+                )
+
+        return warning_lines
+
+    def notify_pre_run_warnings(
+        self,
+        target_date: date,
+        active_targets: list[tuple[TargetSpec, date, datetime]],
+        resolved: list[ResolvedTarget],
+    ) -> None:
+        sections: list[str] = []
+        limit_lines = self.booking_limit_warning_lines(active_targets)
+        schedule_lines = self.schedule_change_warning_lines(resolved)
+
+        if limit_lines:
+            sections.append("Booking limit warning:\n" + "\n".join(f"- {line}" for line in limit_lines))
+        if schedule_lines:
+            sections.append("Schedule/teacher warning:\n" + "\n".join(f"- {line}" for line in schedule_lines))
+        if not sections:
+            return
+
+        text = f"Pure pre-run warning for {target_date.isoformat()}\n\n" + "\n\n".join(sections)
+        for section in sections:
+            self.log(section)
+        try:
+            self.send_telegram(text)
+        except Exception as exc:
+            self.log(f"Telegram pre-run warning failed: {type(exc).__name__}: {exc}")
+
     def run(self, args: argparse.Namespace) -> int:
         targets = self.build_targets()
         active_targets: list[tuple[TargetSpec, date, datetime]] = []
@@ -1586,6 +1720,9 @@ class PureYogaBot:
                     self.log(self.format_target_summary(result, client))
                 else:
                     self.log(self.format_target_summary(result))
+
+        if not args.lookup_only and not args.dry_run:
+            self.notify_pre_run_warnings(target_date, active_targets, resolved)
 
         if args.lookup_only:
             self.log("Lookup-only mode complete.")
