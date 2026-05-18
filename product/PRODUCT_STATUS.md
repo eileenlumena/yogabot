@@ -37,6 +37,7 @@ Last updated: 2026-05-18
 - Booking engine now has Telegram pre-run warnings for booking-limit issues, schedule `NO_MATCH`, and replacement-teacher fallback. Warnings are sent after schedule lookup and before the sleep/login/warmup phase.
 - Existing account bookings are now fetched read-only from Pure's `get_booking_history` endpoint before warnings are calculated, so Telegram limit warnings include booked, waitlisted, and signed-in classes in the relevant window plus config-planned targets.
 - Added `--warnings-only` mode so SG server can run an evening planning check without sending booking requests. The morning run still keeps its last-minute warning as backup.
+- Fresh detailed Product thread handover created at `PRODUCT_THREAD_HANDOVER_2026-05-18.md` for starting a new Codex thread without relying on chat memory.
 
 ## Immediate Run Context
 
@@ -73,7 +74,8 @@ Important metrics:
 
 1. Upload `pure_yoga_booking.py` to the SG server before relying on the latest Telegram pre-run warnings there.
 2. Add a separate SG server cron for `--warnings-only`, preferably the evening before the 9am booking run.
-3. Upload and verify config before any important run.
+3. In a new Codex thread, read `PRODUCT_THREAD_HANDOVER_2026-05-18.md` first, then inspect the repo before coding.
+4. Upload and verify config before any important run.
 4. After the next run, compare performance against previous days side by side.
 5. Plan a multi-booking test on non-critical classes:
    - fewer than 5 advance bookings first;

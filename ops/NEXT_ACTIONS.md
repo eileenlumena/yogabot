@@ -19,9 +19,11 @@ python3 pure_yoga_booking.py --config pure_yoga_config.json --warnings-only
 
 3. If any future Fitness class is highly important at the 9:00 edge, decide whether to avoid mixing Yoga and Fitness in the same run because current multi-site behavior books the second site only after the first site finishes.
 
-4. Watch the next Telegram pre-run warning, if any, to confirm it makes sense with the current My Bookings page.
+4. For a new Product Codex thread, start by asking it to read `PRODUCT_THREAD_HANDOVER_2026-05-18.md`.
 
-5. Continue comparing future runs side by side, not as single-day metrics.
+5. Watch the next Telegram pre-run warning, if any, to confirm it makes sense with the current My Bookings page.
+
+6. Continue comparing future runs side by side, not as single-day metrics.
 
 ## For Product / Booking Engine
 
