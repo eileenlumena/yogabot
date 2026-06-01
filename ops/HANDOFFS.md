@@ -1,6 +1,6 @@
 # Handoffs
 
-Last updated: 2026-05-18
+Last updated: 2026-05-30
 
 ## Active Handoffs
 
@@ -21,6 +21,24 @@ Last updated: 2026-05-18
    Required output: Identify a safe endpoint and timing strategy, or document that the feature should wait.
    Urgency: Medium.
    Status: resolved by Product on 2026-05-18. Safe read-only endpoint identified as `GET /api/v3/get_booking_history`; booking engine now fetches it before pre-run warning calculation and continues with config-only warnings if the fetch fails.
+
+3. Date: 2026-05-23
+   From: Product / Booking Engine
+   To: UI / Control Panel
+   Request: Add a "Skip this run" control for active scheduled bot targets.
+   Context: Eileen may see an evening or morning warning that a teacher changed, a class is missing, or a booking-limit issue exists. She needs a fast way to stop the bot from attempting one target in the next booking run without deleting the permanent recurring target.
+   Required output: In Active Run Preview, show a per-target "Skip this run" action. For recurring targets, add the target's booking run date to `skip_booking_run_dates`. For one-off targets, remove the one-off target or mark it inactive for that run. The UI should label skipped targets clearly and allow undo before saving. Avoid the word "cancel" because this does not cancel an already-booked Pure class; it only prevents the bot from attempting a future booking.
+   Urgency: High for morning/evening warning workflow.
+   Status: implemented by UI on 2026-05-23; browser verified against dev config.
+
+4. Date: 2026-05-30
+   From: Product / Booking Engine
+   To: UI / Control Panel
+   Request: Treat the future phone experience as a mobile-first web UI / PWA option before considering a native app.
+   Context: Eileen asked whether the bot could become an internal phone app for personal use and close friends without App Store distribution. Product recommendation is to build this as a password-protected mobile web app / Progressive Web App first. Users can open the web UI in Safari/Chrome and use "Add to Home Screen" to get a phone icon; updates stay server-side, and Telegram remains the notification channel.
+   Required output: UI thread should consider responsive/mobile-first layouts and PWA readiness for the control panel roadmap. Expected workflows include view upcoming booking schedule, add one-off target, add recurring target, edit/disable target, skip this run, view warnings/results, run lookup/test notification, and eventually sync with the DigitalOcean bot server. Do not prioritize native iOS/TestFlight unless PWA proves insufficient.
+   Urgency: Medium. This is roadmap/product direction, not blocking current booking engine work.
+   Status: open.
 
 ## Protocol
 

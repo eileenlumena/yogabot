@@ -1,6 +1,6 @@
 # Product / Booking Engine Status
 
-Last updated: 2026-05-18
+Last updated: 2026-05-30
 
 ## Coordination Status
 
@@ -38,6 +38,22 @@ Last updated: 2026-05-18
 - Existing account bookings are now fetched read-only from Pure's `get_booking_history` endpoint before warnings are calculated, so Telegram limit warnings include booked, waitlisted, and signed-in classes in the relevant window plus config-planned targets.
 - Added `--warnings-only` mode so SG server can run an evening planning check without sending booking requests. The morning run still keeps its last-minute warning as backup.
 - Fresh detailed Product thread handover created at `PRODUCT_THREAD_HANDOVER_2026-05-18.md` for starting a new Codex thread without relying on chat memory.
+- 2026-05-19/20: Booking-limit warning text now uses Telegram-readable action-first blocks: category headline, count/limit, action needed, affected windows/date, already-booked classes, and planned bot classes. Rolling 5-day warnings are grouped by category so overlapping windows do not repeat the same class list. Synthetic tests confirmed both daily 2-per-category and rolling 5-day 6-per-category warnings.
+- 2026-05-20: `--warnings-only` with no `--target-date` now defaults to the next booking run date, so an evening warning job checks the next morning's 9am booking targets instead of the same-day rolling target date.
+- 2026-05-21: Booking-limit planning warnings no longer count expired one-off targets whose booking run date has already passed. Past one-offs should appear only if Pure returns them as existing booked/waitlisted/signed-in classes.
+- 2026-05-21: Cleaned expired/completed one-off targets from local live config; no one-off targets remain.
+- 2026-05-22: Local live config was rebuilt into a clean permanent recurring list. Removed Monday 12:00 Calisthenics, removed stale Friday 11:15 Mat: Classical Pilates after Pure lookup showed no match, converted Wednesday Asia Square Yogasthenics Foundation/Aerial Stretch to recurring, and added verified Monday BODYCOMBAT, Tuesday Mat: Strength Pilates, and Thursday Grounding: Hatha Advanced.
+- 2026-05-23: Product requested a UI "Skip this run" control in `ops/HANDOFFS.md` so Eileen can prevent one upcoming bot booking attempt after a warning without deleting the recurring target.
+- 2026-05-23: Telegram booking-limit class rows now use shorter class labels, first-name teachers, short locations, and no `[booked]` suffix in the already-booked section.
+- 2026-05-24: `NO_MATCH` closest-match suggestions now rank same-date classes across locations by related class family/name and nearby time, show each class location, and omit internal `class_id` from user-facing suggestions.
+- 2026-05-25: Saturday recurring Fitness `Calisthenics Foundations` at Ngee Ann City changed permanently from 12:00 to 13:00.
+- 2026-05-25: `NO_MATCH` suggestions were tightened again: user-facing suggestions now show only exact target-time/location replacements and close same-date class-name matches within a nearby timing window, instead of unrelated nearby classes.
+- 2026-05-25: Booking-limit warnings now count existing Pure bookings plus only the targets active in the current run. Future recurring bot plans in the same rolling window are no longer counted as if they were already being booked now.
+- 2026-05-26: Added config validation for known SG site/location id pairs so mismatches such as Fitness Asia Square using Yoga Asia Square's location id fail with a clear error before lookup/booking.
+- 2026-05-26: Added pre-run class timing overlap warnings using Pure schedule start/end times. Warnings compare matched bot targets against each other and against existing booked/waitlisted classes, and ignore exact back-to-back classes.
+- 2026-05-29: Schedule/teacher Telegram warnings now use a high-visibility emoji header and separate per-class blocks with date/time, short location, issue, detail, possible matches, and action.
+- 2026-05-29: User-facing warning dates now use display format like `Fri 29 May 2026`; removed the extra schedule-warning instruction line.
+- 2026-05-30: Product/UI direction captured in `ops/HANDOFFS.md`: future phone access should start as a mobile-first web UI / PWA with Add to Home Screen support, not a native iOS app first.
 
 ## Immediate Run Context
 
@@ -64,7 +80,8 @@ Important metrics:
 - Server config can fall behind local config.
 - Restored live config changes are not in Git because `pure_yoga_config.json` is intentionally ignored; they must be uploaded to SG server separately.
 - Existing-booking warning fetch is read-only and non-blocking; if it fails, the bot logs the failure and continues with config-only warning counts.
-- Expired one-off targets clutter the config.
+- Evening `--warnings-only` behavior changed on 2026-05-20; upload the latest `pure_yoga_booking.py` before relying on server-side 8pm warnings.
+- Expired one-off targets were cleaned from local live config on 2026-05-21; upload `pure_yoga_config.json` to SG after cleanup.
 - Multi-site runs handle Yoga and Fitness one after another, so they are not the cleanest test of exact 9:00 same-site parallel timing.
 - Pure may enforce an advance-booking limit by category/account; this can look like a bot failure if not controlled.
 - Pure schedule changes can produce `NO_MATCH`; this is correct behavior when the target class is no longer posted at that time/location.
@@ -72,7 +89,7 @@ Important metrics:
 
 ## Next Product Tasks
 
-1. Upload `pure_yoga_booking.py` to the SG server before relying on the latest Telegram pre-run warnings there.
+1. Upload `pure_yoga_booking.py` to the SG server before relying on the latest detailed category/limit Telegram warnings there.
 2. Add a separate SG server cron for `--warnings-only`, preferably the evening before the 9am booking run.
 3. In a new Codex thread, read `PRODUCT_THREAD_HANDOVER_2026-05-18.md` first, then inspect the repo before coding.
 4. Upload and verify config before any important run.

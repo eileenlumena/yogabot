@@ -1,10 +1,10 @@
 # Next Actions
 
-Last updated: 2026-05-18
+Last updated: 2026-05-20
 
 ## For Eileen
 
-1. Upload the updated booking engine to the SG server before relying on the latest Telegram pre-run warnings there.
+1. Upload the updated booking engine to the SG server before relying on the latest detailed category/limit Telegram pre-run warnings and corrected evening `--warnings-only` default there.
 
 ```bash
 scp "/Users/eileenmac/Documents/Yoga Booking Bot/pure_yoga_booking.py" root@45.77.249.30:/root/PureYogaBot/pure_yoga_booking.py
@@ -16,6 +16,8 @@ scp "/Users/eileenmac/Documents/Yoga Booking Bot/pure_yoga_booking.py" root@45.7
 cd /root/PureYogaBot
 python3 pure_yoga_booking.py --config pure_yoga_config.json --warnings-only
 ```
+
+`--warnings-only` now defaults to the next booking run date when `--target-date` is omitted.
 
 3. If any future Fitness class is highly important at the 9:00 edge, decide whether to avoid mixing Yoga and Fitness in the same run because current multi-site behavior books the second site only after the first site finishes.
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+from difflib import SequenceMatcher
 import json
 import re
 import sys
@@ -174,6 +175,13 @@ FIXED_OFFSET_TIMEZONES = {
     "UTC": timezone.utc,
 }
 
+KNOWN_LOCATION_IDS = {
+    ("yoga", "ngeeann"): 19,
+    ("yoga", "asiasquare"): 22,
+    ("fitness", "ngeeann"): 31,
+    ("fitness", "asiasquare"): 21,
+}
+
 
 class PureYogaError(RuntimeError):
     pass
@@ -277,8 +285,11 @@ class PlannedOccurrence:
 class ExistingBookingOccurrence:
     class_date: date
     start_time: str
+    end_time: str
+    duration_min: int
     class_name: str
     location_name: str
+    teacher_name: str
     class_type: str
     status: str
 
@@ -459,6 +470,10 @@ def parse_date_or_blank(value: str) -> date | None:
         return date.fromisoformat(value)
     except ValueError as exc:
         raise PureYogaError(f"Invalid class_date '{value}'. Use YYYY-MM-DD.") from exc
+
+
+def format_display_date(value: date) -> str:
+    return f"{value.strftime('%a')} {value.day} {value.strftime('%b %Y')}"
 
 
 def safe_int(value: Any) -> int:
@@ -792,17 +807,30 @@ class SiteClient:
             raise PureYogaAPIError(code, message)
         return payload.get("data", {}).get("bookings", [])
 
-    def format_class_line(self, item: dict[str, Any], fallback_location_name: str = "") -> str:
+    def format_class_line(
+        self,
+        item: dict[str, Any],
+        fallback_location_name: str = "",
+        *,
+        include_class_id: bool = True,
+    ) -> str:
         class_type = item.get("class_type", {})
         teacher = item.get("teacher", {})
         location_id = safe_int(item.get("location_id"))
-        return (
-            f"{item.get('start_date')} {item.get('start_time_display')} | "
+        start_date = str(item.get("start_date") or "")
+        if not include_class_id:
+            parsed_date = parse_date_or_blank(start_date)
+            if parsed_date:
+                start_date = format_display_date(parsed_date)
+        line = (
+            f"{start_date} {item.get('start_time_display')} | "
             f"{class_type.get('name', 'Unknown')} | "
             f"{self.location_name(location_id, fallback_location_name)} | "
-            f"{teacher.get('full_name') or teacher.get('name', 'Unknown teacher')} | "
-            f"class_id={item.get('id')}"
+            f"{teacher.get('full_name') or teacher.get('name', 'Unknown teacher')}"
         )
+        if include_class_id:
+            line += f" | class_id={item.get('id')}"
+        return line
 
     def list_classes(self, classes: list[dict[str, Any]], target_date: date) -> None:
         target_date_str = target_date.isoformat()
@@ -1262,6 +1290,27 @@ class PureYogaBot:
             self.server_time_offset_ms = (self.server_time_offset_ms * 0.7) + (observed_offset_ms * 0.3)
         self._server_time_samples += 1
 
+    def validate_target_location_id(
+        self,
+        *,
+        index: int,
+        site: str,
+        class_name: str,
+        start_time: str,
+        location_id: int,
+        location_name: str,
+    ) -> None:
+        if not location_id or not location_name:
+            return
+        normalized_location = normalize_text(location_name)
+        for (known_site, location_marker), expected_id in KNOWN_LOCATION_IDS.items():
+            if site == known_site and location_marker in normalized_location and location_id != expected_id:
+                raise PureYogaError(
+                    f"Target #{index} location mismatch: {class_name} {start_time} uses "
+                    f"site='{site}', location_name='{location_name}', location_id={location_id}. "
+                    f"Expected location_id={expected_id} for this site/location."
+                )
+
     def build_targets(self) -> list[TargetSpec]:
         targets_raw = list(self.config.get("targets") or [])
         if not targets_raw:
@@ -1288,6 +1337,14 @@ class PureYogaBot:
             mode = normalize_mode(str(merged.get("mode", "book_all")))
             priority_source = raw.get("priority") if isinstance(raw, dict) else None
             priority = safe_int(priority_source if priority_source not in (None, "") else index)
+            self.validate_target_location_id(
+                index=index,
+                site=site,
+                class_name=class_name,
+                start_time=start_time,
+                location_id=location_id,
+                location_name=location_name,
+            )
 
             targets.append(
                 TargetSpec(
@@ -1316,7 +1373,12 @@ class PureYogaBot:
             )
         return targets
 
-    def resolve_target_date(self, target: TargetSpec, override: str | None) -> date:
+    def resolve_target_date(
+        self,
+        target: TargetSpec,
+        override: str | None,
+        run_date: date | None = None,
+    ) -> date:
         if override:
             try:
                 return date.fromisoformat(override)
@@ -1324,15 +1386,21 @@ class PureYogaBot:
                 raise PureYogaError(f"Invalid --target-date '{override}'. Use YYYY-MM-DD.") from exc
         if target.class_date:
             return target.class_date
-        today_sg = self.now().date()
-        return today_sg + timedelta(days=target.class_days_ahead)
+        active_run_date = run_date or self.now().date()
+        return active_run_date + timedelta(days=target.class_days_ahead)
 
     def booking_open_datetime(self, target: TargetSpec, target_date: date) -> datetime:
         booking_open_date = target_date - timedelta(days=target.booking_open_days)
         return datetime.combine(booking_open_date, parse_clock(str(self.booking["open_time"])), self.tz)
 
-    def is_target_active(self, target: TargetSpec, target_date: date, override: str | None = None) -> bool:
-        active_run_date = self.booking_open_datetime(target, target_date).date() if override else self.now().date()
+    def is_target_active(
+        self,
+        target: TargetSpec,
+        target_date: date,
+        override: str | None = None,
+        run_date: date | None = None,
+    ) -> bool:
+        active_run_date = self.booking_open_datetime(target, target_date).date() if override else run_date or self.now().date()
         if active_run_date in target.skip_booking_run_dates:
             return False
         if target.booking_run_date:
@@ -1362,6 +1430,138 @@ class PureYogaBot:
         while self.now() < target_dt:
             pass
 
+    def time_minutes(self, value: str | None) -> int | None:
+        try:
+            normalized = normalize_time(value)
+        except PureYogaError:
+            return None
+        hour, minute = [int(part) for part in normalized.split(":")]
+        return (hour * 60) + minute
+
+    def class_name_similarity(self, target_name: str, class_name: str) -> float:
+        target_normalized = normalize_text(target_name)
+        class_normalized = normalize_text(class_name)
+        if not target_normalized or not class_normalized:
+            return 0.0
+        if target_normalized in class_normalized or class_normalized in target_normalized:
+            return 1.0
+        return SequenceMatcher(None, target_normalized, class_normalized).ratio()
+
+    def same_class_family(self, target_name: str, class_name: str) -> bool:
+        target_normalized = normalize_text(target_name)
+        class_normalized = normalize_text(class_name)
+        families = (
+            ("aerial",),
+            ("hatha",),
+            ("wallrope",),
+            ("yogasthenics",),
+            ("calisthenics",),
+            ("bodycombat",),
+        )
+        for family in families:
+            if any(marker in target_normalized for marker in family):
+                return any(marker in class_normalized for marker in family)
+        return False
+
+    def class_name_tokens(self, class_name: str) -> set[str]:
+        stop_words = {
+            "class",
+            "dynamic",
+            "elevate",
+            "grounding",
+            "healing",
+            "hot",
+            "mat",
+            "specialised",
+            "the",
+        }
+        normalized = re.sub(r"[^a-z0-9]+", " ", class_name.lower())
+        return {token for token in normalized.split() if len(token) >= 3 and token not in stop_words}
+
+    def close_class_name_match(self, target_name: str, class_name: str) -> bool:
+        similarity = self.class_name_similarity(target_name, class_name)
+        if similarity >= 0.58 or self.same_class_family(target_name, class_name):
+            return True
+
+        target_tokens = self.class_name_tokens(target_name)
+        class_tokens = self.class_name_tokens(class_name)
+        if not target_tokens or not class_tokens:
+            return False
+
+        overlap = target_tokens & class_tokens
+        if len(overlap) >= 2:
+            return True
+        if len(overlap) == 1 and (len(target_tokens) == 1 or len(class_tokens) == 1):
+            return True
+        return False
+
+    def no_match_suggestion_sections(
+        self,
+        client: SiteClient,
+        target: TargetSpec,
+        classes: list[dict[str, Any]],
+        *,
+        limit: int = 5,
+    ) -> list[str]:
+        target_minutes = self.time_minutes(target.start_time)
+        target_time = normalize_time(target.start_time)
+        target_location_name = normalize_text(target.location_name)
+
+        exact_time_replacements: list[dict[str, Any]] = []
+        close_name_matches: list[dict[str, Any]] = []
+
+        for item in classes:
+            location_id = safe_int(item.get("location_id"))
+            class_name = item.get("class_type", {}).get("name", "")
+            class_time = item.get("start_time_display") or item.get("start_time")
+            location_name = client.location_name(location_id, target.location_name)
+            same_location = (target.location_id and location_id == target.location_id) or (
+                target_location_name and target_location_name in normalize_text(location_name)
+            )
+            try:
+                same_time = normalize_time(class_time) == target_time
+            except PureYogaError:
+                same_time = False
+
+            if same_location and same_time:
+                exact_time_replacements.append(item)
+            item_minutes = self.time_minutes(class_time)
+            close_time = (
+                item_minutes is not None
+                and target_minutes is not None
+                and abs(item_minutes - target_minutes) <= 180
+            )
+            if close_time and self.close_class_name_match(target.class_name, class_name):
+                close_name_matches.append(item)
+
+        def sort_key(item: dict[str, Any]) -> tuple[int, float, str]:
+            class_name = item.get("class_type", {}).get("name", "")
+            class_time = item.get("start_time_display") or item.get("start_time")
+            item_minutes = self.time_minutes(class_time)
+            delta = abs((item_minutes or 0) - (target_minutes or 0)) if item_minutes is not None and target_minutes is not None else 9999
+            similarity = self.class_name_similarity(target.class_name, class_name)
+            return (delta, -similarity, normalize_text(class_name))
+
+        sections: list[str] = []
+        if exact_time_replacements:
+            lines = "\n".join(
+                f"  - {client.format_class_line(item, target.location_name, include_class_id=False)}"
+                for item in sorted(exact_time_replacements, key=sort_key)[:limit]
+            )
+            sections.append(f"Class currently at target time/location:\n{lines}")
+
+        close_name_matches = [
+            item for item in close_name_matches if item not in exact_time_replacements
+        ]
+        if close_name_matches:
+            lines = "\n".join(
+                f"  - {client.format_class_line(item, target.location_name, include_class_id=False)}"
+                for item in sorted(close_name_matches, key=sort_key)[:limit]
+            )
+            sections.append(f"Similar class-name matches on the same date:\n{lines}")
+
+        return sections
+
     def resolve_target_match(
         self,
         client: SiteClient,
@@ -1378,10 +1578,12 @@ class PureYogaBot:
         location_matches: list[dict[str, Any]] = []
         time_matches: list[dict[str, Any]] = []
         base_matches: list[dict[str, Any]] = []
+        date_matches: list[dict[str, Any]] = []
 
         for item in classes:
             if item.get("start_date") != target_date_str:
                 continue
+            date_matches.append(item)
 
             location_id = safe_int(item.get("location_id"))
             class_name = item.get("class_type", {}).get("name", "")
@@ -1402,32 +1604,41 @@ class PureYogaBot:
                 base_matches.append(item)
 
         if not base_matches:
+            suggestion_sections = self.no_match_suggestion_sections(client, target, date_matches)
+            suggestions = "\n\n".join(suggestion_sections)
             if time_matches:
-                suggestions = "\n".join(
-                    f"  {client.format_class_line(item, target.location_name)}" for item in time_matches[:6]
-                )
+                message = "No exact class name match at the target time/location."
+                if suggestions:
+                    message = f"{message}\n\n{suggestions}"
                 return ResolvedTarget(
                     target=target,
                     target_date=target_date,
                     booking_open_dt=self.booking_open_datetime(target, target_date),
                     status=STATUS_NO_MATCH,
-                    message=(
-                        "No exact class name match at the target time/location.\n"
-                        f"Closest matches:\n{suggestions}"
-                    ),
+                    message=message,
                 )
             if location_matches:
-                suggestions = "\n".join(
-                    f"  {client.format_class_line(item, target.location_name)}" for item in location_matches[:6]
+                message = "No exact class/time match at the target location."
+                if suggestions:
+                    message = f"{message}\n\n{suggestions}"
+                else:
+                    message = f"{message} No close same-date class-name match found."
+                return ResolvedTarget(
+                    target=target,
+                    target_date=target_date,
+                    booking_open_dt=self.booking_open_datetime(target, target_date),
+                    status=STATUS_NO_MATCH,
+                    message=message,
                 )
+            if suggestions:
                 return ResolvedTarget(
                     target=target,
                     target_date=target_date,
                     booking_open_dt=self.booking_open_datetime(target, target_date),
                     status=STATUS_NO_MATCH,
                     message=(
-                        "No exact class/time match at the target location.\n"
-                        f"Closest matches:\n{suggestions}"
+                        "No matching class found at the target location.\n\n"
+                        f"{suggestions}"
                     ),
                 )
             return ResolvedTarget(
@@ -1583,7 +1794,12 @@ class PureYogaBot:
             if note not in self.summary_notes:
                 self.summary_notes.append(note)
 
-    def planned_occurrences_for_window(self, start_date: date, end_date: date) -> list[PlannedOccurrence]:
+    def planned_occurrences_for_window(
+        self,
+        start_date: date,
+        end_date: date,
+        reference_run_date: date | None = None,
+    ) -> list[PlannedOccurrence]:
         occurrences: list[PlannedOccurrence] = []
         targets = self.build_targets()
         for target in targets:
@@ -1599,8 +1815,10 @@ class PureYogaBot:
             for class_date in class_dates:
                 if class_date < start_date or class_date > end_date:
                     continue
-                booking_run_date = class_date - timedelta(days=target.booking_open_days)
+                booking_run_date = target.booking_run_date or class_date - timedelta(days=target.booking_open_days)
                 if booking_run_date in target.skip_booking_run_dates:
+                    continue
+                if reference_run_date and booking_run_date < reference_run_date:
                     continue
                 occurrences.append(
                     PlannedOccurrence(
@@ -1645,6 +1863,7 @@ class PureYogaBot:
                 continue
 
             class_type = class_item.get("class_type") or {}
+            teacher = class_item.get("teacher") or {}
             location = class_item.get("location") or {}
             location_name = str(
                 location.get("name")
@@ -1659,8 +1878,11 @@ class PureYogaBot:
                 ExistingBookingOccurrence(
                     class_date=class_date,
                     start_time=str(class_item.get("start_time_display") or class_item.get("start_time") or ""),
+                    end_time=str(class_item.get("end_time") or ""),
+                    duration_min=safe_int(class_item.get("duration_min")),
                     class_name=str(class_type.get("name") or class_item.get("class_name") or "Unknown class"),
                     location_name=location_name,
+                    teacher_name=str(teacher.get("full_name") or teacher.get("name") or ""),
                     class_type=booking_limit_class_type_from_booking(booking),
                     status=status,
                 )
@@ -1687,6 +1909,221 @@ class PureYogaBot:
             normalize_text(item.location_name),
         )
 
+    def short_limit_class_name(self, class_name: str) -> str:
+        cleaned = class_name.strip()
+        for prefix in (
+            "Specialised:",
+            "Grounding:",
+            "Healing:",
+            "Dynamic:",
+            "Hot:",
+            "Mat:",
+            "Elevate:",
+        ):
+            if cleaned.startswith(prefix):
+                return cleaned[len(prefix) :].strip()
+        return cleaned
+
+    def short_limit_teacher_name(self, teacher_name: str) -> str:
+        cleaned = teacher_name.strip()
+        return cleaned.split()[0] if cleaned else ""
+
+    def short_limit_location_name(self, location_name: str) -> str:
+        normalized = location_name.strip()
+        if "Ngee Ann" in normalized:
+            return "Ngee Ann City"
+        if "Asia Square" in normalized:
+            return "Asia Sq"
+        return normalized
+
+    def format_limit_occurrence(self, item: PlannedOccurrence | ExistingBookingOccurrence) -> str:
+        if isinstance(item, PlannedOccurrence):
+            teacher = self.short_limit_teacher_name(item.target.teacher_name)
+            location = self.short_limit_location_name(item.target.location_name)
+            details = f"{format_display_date(item.class_date)} {item.target.start_time} {self.short_limit_class_name(item.target.class_name)}"
+        else:
+            teacher = self.short_limit_teacher_name(item.teacher_name)
+            location = self.short_limit_location_name(item.location_name)
+            details = f"{format_display_date(item.class_date)} {item.start_time} {self.short_limit_class_name(item.class_name)}"
+
+        if teacher:
+            details += f" by {teacher}"
+        if location:
+            details += f", {location}"
+        return details
+
+    def class_interval(
+        self,
+        class_date: date,
+        start_time: str,
+        end_time: str = "",
+        duration_min: int = 0,
+    ) -> tuple[datetime, datetime] | None:
+        try:
+            start_clock = parse_clock(normalize_time(start_time))
+        except PureYogaError:
+            return None
+        start_dt = datetime.combine(class_date, start_clock, self.tz)
+
+        end_dt: datetime | None = None
+        if end_time:
+            try:
+                end_clock = parse_clock(normalize_time(end_time))
+                end_dt = datetime.combine(class_date, end_clock, self.tz)
+            except PureYogaError:
+                end_dt = None
+        if end_dt is None and duration_min > 0:
+            end_dt = start_dt + timedelta(minutes=duration_min)
+        if end_dt is None:
+            return None
+        if end_dt <= start_dt:
+            end_dt += timedelta(days=1)
+        return start_dt, end_dt
+
+    def class_item_interval(self, item: dict[str, Any], fallback_date: date) -> tuple[datetime, datetime] | None:
+        start_date = parse_date_or_blank(str(item.get("start_date") or "").strip()) or fallback_date
+        return self.class_interval(
+            start_date,
+            str(item.get("start_time_display") or item.get("start_time") or ""),
+            str(item.get("end_time") or ""),
+            safe_int(item.get("duration_min")),
+        )
+
+    def format_interval_range(self, start_dt: datetime, end_dt: datetime) -> str:
+        return f"{start_dt.strftime('%H:%M')}-{end_dt.strftime('%H:%M')}"
+
+    def timing_overlap_warning_lines(
+        self,
+        resolved: list[ResolvedTarget],
+        existing_occurrences: list[ExistingBookingOccurrence],
+    ) -> list[str]:
+        intervals: list[tuple[str, datetime, datetime, bool]] = []
+        for item in existing_occurrences:
+            interval = self.class_interval(item.class_date, item.start_time, item.end_time, item.duration_min)
+            if not interval:
+                continue
+            start_dt, end_dt = interval
+            intervals.append(
+                (
+                    f"already {item.status} {self.format_limit_occurrence(item)}",
+                    start_dt,
+                    end_dt,
+                    False,
+                )
+            )
+
+        for item in resolved:
+            if item.status != "MATCHED" or not item.class_item:
+                continue
+            interval = self.class_item_interval(item.class_item, item.target_date)
+            if not interval:
+                continue
+            start_dt, end_dt = interval
+            planned = PlannedOccurrence(
+                target=item.target,
+                class_date=item.target_date,
+                class_type=booking_limit_class_type(item.target),
+            )
+            intervals.append((f"bot target {self.format_limit_occurrence(planned)}", start_dt, end_dt, True))
+
+        warning_lines: list[str] = []
+        for index, first in enumerate(intervals):
+            first_label, first_start, first_end, first_is_planned = first
+            for second_label, second_start, second_end, second_is_planned in intervals[index + 1 :]:
+                if not (first_is_planned or second_is_planned):
+                    continue
+                if first_start < second_end and second_start < first_end:
+                    warning_lines.append(
+                        f"{first_label} ({self.format_interval_range(first_start, first_end)}) overlaps "
+                        f"{second_label} ({self.format_interval_range(second_start, second_end)}). "
+                        "Pure may reject overlapping bookings."
+                    )
+        return warning_lines
+
+    def sorted_limit_occurrences(
+        self,
+        items: list[PlannedOccurrence | ExistingBookingOccurrence],
+    ) -> list[PlannedOccurrence | ExistingBookingOccurrence]:
+        return sorted(
+            items,
+            key=lambda item: (
+                item.class_date,
+                normalize_time(item.target.start_time if isinstance(item, PlannedOccurrence) else item.start_time),
+                normalize_text(item.target.class_name if isinstance(item, PlannedOccurrence) else item.class_name),
+            ),
+        )
+
+    def format_limit_warning_block(
+        self,
+        *,
+        title: str,
+        class_type: str,
+        count: int,
+        limit: int,
+        period_label: str,
+        items: list[PlannedOccurrence | ExistingBookingOccurrence],
+    ) -> str:
+        existing_items = [
+            item for item in self.sorted_limit_occurrences(items) if isinstance(item, ExistingBookingOccurrence)
+        ]
+        planned_items = [
+            item for item in self.sorted_limit_occurrences(items) if isinstance(item, PlannedOccurrence)
+        ]
+        over_by = count - limit
+        lines = [
+            f"{title.upper()} WARNING: {class_type}",
+            f"{count}/{limit} {class_type} classes on this date",
+            f"Action: remove {over_by} {class_type} booking(s)/target(s) to stay within the limit.",
+            "",
+            period_label,
+        ]
+        if existing_items:
+            lines.append("")
+            lines.append("Already booked:")
+            lines.extend(f"  - {self.format_limit_occurrence(item)}" for item in existing_items)
+        if planned_items:
+            lines.append("")
+            lines.append("Bot plans to book:")
+            lines.extend(f"  - {self.format_limit_occurrence(item)}" for item in planned_items)
+        return "\n".join(lines)
+
+    def format_rolling_limit_warning_block(
+        self,
+        class_type: str,
+        violations: list[tuple[date, date, int, list[PlannedOccurrence | ExistingBookingOccurrence]]],
+    ) -> str:
+        highest_window_start, highest_window_end, total_count, counted_items = max(
+            violations,
+            key=lambda item: (item[2], item[0]),
+        )
+        over_by = total_count - 6
+        lines = [
+            f"{class_type.upper()} LIMIT WARNING",
+            f"{total_count}/6 {class_type} classes in a rolling 5-day window",
+            f"Action: remove {over_by} {class_type} booking(s)/target(s) to stay within the limit.",
+            "",
+            "Affected windows:",
+        ]
+        for window_start, window_end, count, _ in violations:
+            lines.append(f"  - {format_display_date(window_start)} to {format_display_date(window_end)}: {count}/6")
+        lines.append("")
+        lines.append(f"Counted classes ({format_display_date(highest_window_start)} to {format_display_date(highest_window_end)}):")
+        existing_items = [
+            item for item in self.sorted_limit_occurrences(counted_items) if isinstance(item, ExistingBookingOccurrence)
+        ]
+        planned_items = [
+            item for item in self.sorted_limit_occurrences(counted_items) if isinstance(item, PlannedOccurrence)
+        ]
+        if existing_items:
+            lines.append("")
+            lines.append("Already booked:")
+            lines.extend(f"  - {self.format_limit_occurrence(item)}" for item in existing_items)
+        if planned_items:
+            lines.append("")
+            lines.append("Bot plans to book:")
+            lines.extend(f"  - {self.format_limit_occurrence(item)}" for item in planned_items)
+        return "\n".join(lines)
+
     def booking_limit_warning_lines(
         self,
         active_targets: list[tuple[TargetSpec, date, datetime]],
@@ -1698,7 +2135,14 @@ class PureYogaBot:
         active_dates = sorted({target_date for _, target_date, _ in active_targets})
         start_date = min(active_dates) - timedelta(days=4)
         end_date = max(active_dates) + timedelta(days=4)
-        planned_occurrences = self.planned_occurrences_for_window(start_date, end_date)
+        planned_occurrences = [
+            PlannedOccurrence(
+                target=target,
+                class_date=target_date,
+                class_type=booking_limit_class_type(target),
+            )
+            for target, target_date, _ in active_targets
+        ]
         existing_occurrences = existing_occurrences or []
         existing_keys = {self.occurrence_key(item) for item in existing_occurrences}
         occurrences: list[PlannedOccurrence | ExistingBookingOccurrence] = list(existing_occurrences)
@@ -1710,13 +2154,25 @@ class PureYogaBot:
         for class_date in active_dates:
             same_day = [item for item in occurrences if item.class_date == class_date]
             for class_type in ("Yoga", "Pilates", "Fitness"):
-                count = sum(1 for item in same_day if item.class_type == class_type)
+                class_type_items = [item for item in same_day if item.class_type == class_type]
+                count = len(class_type_items)
                 if count > 2:
                     warning_lines.append(
-                        f"{class_date.isoformat()}: {count} {class_type} booking(s) already booked/waitlisted "
-                        "or planned; Pure daily limit is 2."
+                        self.format_limit_warning_block(
+                            title="Daily booking limit",
+                            class_type=class_type,
+                            count=count,
+                            limit=2,
+                            period_label=f"Date: {format_display_date(class_date)}",
+                            items=class_type_items,
+                        )
                     )
 
+        rolling_violations: dict[str, list[tuple[date, date, int, list[PlannedOccurrence | ExistingBookingOccurrence]]]] = {
+            "Yoga": [],
+            "Pilates": [],
+            "Fitness": [],
+        }
         window_start = start_date
         while window_start <= end_date - timedelta(days=4):
             window_end = window_start + timedelta(days=4)
@@ -1725,28 +2181,51 @@ class PureYogaBot:
                     item for item in occurrences if window_start <= item.class_date <= window_end
                 ]
                 for class_type in ("Yoga", "Pilates", "Fitness"):
-                    count = sum(1 for item in in_window if item.class_type == class_type)
+                    class_type_items = [item for item in in_window if item.class_type == class_type]
+                    count = len(class_type_items)
                     if count > 6:
-                        warning_lines.append(
-                            f"{window_start.isoformat()} to {window_end.isoformat()}: "
-                            f"{count} {class_type} booking(s) already booked/waitlisted or planned; "
-                            "Pure 5-day limit is 6."
-                        )
+                        rolling_violations[class_type].append((window_start, window_end, count, class_type_items))
             window_start += timedelta(days=1)
 
-        return sorted(set(warning_lines))
+        for class_type in ("Yoga", "Pilates", "Fitness"):
+            if rolling_violations[class_type]:
+                warning_lines.append(
+                    self.format_rolling_limit_warning_block(class_type, rolling_violations[class_type])
+                )
+
+        return list(dict.fromkeys(warning_lines))
 
     def schedule_change_warning_lines(self, resolved: list[ResolvedTarget]) -> list[str]:
         warning_lines: list[str] = []
-        for item in resolved:
+        for warning_index, item in enumerate(
+            [
+                result
+                for result in resolved
+                if result.status == STATUS_NO_MATCH
+                or (result.status == "MATCHED" and "Falling back to replacement teacher" in (result.message or ""))
+            ],
+            start=1,
+        ):
             if item.status == STATUS_NO_MATCH:
+                lines = [
+                    f"⚠️ {warning_index}. {self.short_limit_class_name(item.target.class_name)}",
+                    f"Date/time: {format_display_date(item.target_date)} {item.target.start_time}",
+                    f"Location: {self.short_limit_location_name(item.target.location_name)}",
+                    "Issue: class not matched",
+                    f"Detail: {item.message.splitlines()[0]}",
+                ]
+                suggestions = [
+                    line.strip()[2:]
+                    for line in item.message.splitlines()
+                    if line.strip().startswith("- ")
+                ][:3]
+                if suggestions:
+                    lines.append("Possible match(es):")
+                    lines.extend(f"  - {suggestion}" for suggestion in suggestions)
+                lines.append("Action: check Pure app or skip this run.")
                 warning_lines.append(
-                    f"{item.target.class_name} {item.target.start_time} at {item.target.location_name}: "
-                    f"not matched. {item.message.splitlines()[0]}"
+                    "\n".join(lines)
                 )
-                continue
-
-            if item.status != "MATCHED":
                 continue
 
             message = item.message or ""
@@ -1757,8 +2236,17 @@ class PureYogaBot:
                     or "replacement teacher"
                 )
                 warning_lines.append(
-                    f"{item.target.class_name} {item.target.start_time} at {item.target.location_name}: "
-                    f"teacher changed from {item.target.teacher_name or 'named teacher'} to {teacher}."
+                    "\n".join(
+                        [
+                            f"⚠️ {warning_index}. {self.short_limit_class_name(item.target.class_name)}",
+                            f"Date/time: {format_display_date(item.target_date)} {item.target.start_time}",
+                            f"Location: {self.short_limit_location_name(item.target.location_name)}",
+                            "Issue: teacher changed",
+                            f"Expected: {item.target.teacher_name or 'named teacher'}",
+                            f"Found: {teacher}",
+                            "Action: skip this run if the replacement teacher is not okay.",
+                        ]
+                    )
                 )
 
         return warning_lines
@@ -1772,16 +2260,22 @@ class PureYogaBot:
     ) -> None:
         sections: list[str] = []
         limit_lines = self.booking_limit_warning_lines(active_targets, existing_occurrences)
+        overlap_lines = self.timing_overlap_warning_lines(resolved, existing_occurrences or [])
         schedule_lines = self.schedule_change_warning_lines(resolved)
 
         if limit_lines:
-            sections.append("Booking limit warning:\n" + "\n".join(f"- {line}" for line in limit_lines))
+            sections.append("Booking limit warning:\n\n" + "\n\n".join(limit_lines))
+        if overlap_lines:
+            sections.append("Class timing overlap warning:\n" + "\n".join(f"- {line}" for line in overlap_lines))
         if schedule_lines:
-            sections.append("Schedule/teacher warning:\n" + "\n".join(f"- {line}" for line in schedule_lines))
+            sections.append(
+                "🚨 SCHEDULE / TEACHER WARNING 🚨\n"
+                + "\n\n".join(schedule_lines)
+            )
         if not sections:
             return
 
-        text = f"Pure pre-run warning for {target_date.isoformat()}\n\n" + "\n\n".join(sections)
+        text = f"Pure pre-run warning for {format_display_date(target_date)}\n\n" + "\n\n".join(sections)
         for section in sections:
             self.log(section)
         try:
@@ -1792,17 +2286,28 @@ class PureYogaBot:
     def run(self, args: argparse.Namespace) -> int:
         targets = self.build_targets()
         active_targets: list[tuple[TargetSpec, date, datetime]] = []
+        default_warning_run_date = self.now().date() + timedelta(days=1) if args.warnings_only and not args.target_date else None
         for target in targets:
-            target_date = self.resolve_target_date(target, args.target_date)
-            if not self.is_target_active(target, target_date, args.target_date):
+            target_date = self.resolve_target_date(target, args.target_date, default_warning_run_date)
+            if not self.is_target_active(target, target_date, args.target_date, default_warning_run_date):
                 continue
             active_targets.append((target, target_date, self.booking_open_datetime(target, target_date)))
 
         self.log(f"Config file: {self.config_path}")
+        if default_warning_run_date:
+            self.log(
+                "Warnings-only mode defaulting to next booking run date: "
+                f"{default_warning_run_date.isoformat()}."
+            )
 
         if not active_targets:
             if args.target_date:
                 message = f"No configured targets are active for {args.target_date}."
+            elif default_warning_run_date:
+                message = (
+                    "No configured targets are active for the next booking run date "
+                    f"{default_warning_run_date.isoformat()}."
+                )
             else:
                 message = "No configured targets are active for this run's rolling target date."
             self.log(message)
@@ -2259,7 +2764,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--warnings-only",
         action="store_true",
-        help="Resolve active targets, send Telegram warnings if needed, then exit before booking.",
+        help=(
+            "Resolve active targets for the next booking run, send Telegram warnings if needed, "
+            "then exit before booking."
+        ),
     )
     parser.add_argument(
         "--list-classes",
