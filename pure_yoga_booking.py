@@ -476,6 +476,11 @@ def format_display_date(value: date) -> str:
     return f"{value.strftime('%a')} {value.day} {value.strftime('%b %Y')}"
 
 
+def format_display_datetime(value: date, start_time: str | None) -> str:
+    time_text = normalize_time(start_time) if start_time else ""
+    return f"{format_display_date(value)} {time_text}".strip()
+
+
 def safe_int(value: Any) -> int:
     try:
         return int(value)
@@ -540,6 +545,421 @@ def load_config(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as handle:
         raw_config = json.load(handle)
     return deep_merge(DEFAULT_CONFIG, raw_config)
+
+
+@dataclass
+class LogLine:
+    timestamp: datetime | None
+    message: str
+    raw: str
+
+
+def strip_log_timestamp(line: str) -> LogLine:
+    match = re.match(r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]\s*(.*)$", line)
+    if not match:
+        return LogLine(timestamp=None, message=line.rstrip("\n"), raw=line.rstrip("\n"))
+    try:
+        timestamp = datetime.strptime(match.group(1), "%Y-%m-%d %H:%M:%S.%f")
+    except ValueError:
+        timestamp = None
+    return LogLine(timestamp=timestamp, message=match.group(2), raw=line.rstrip("\n"))
+
+
+def read_tail_text(path: Path, max_bytes: int = 2_000_000) -> str:
+    if not path.exists():
+        raise PureYogaError(f"Performance log not found: {path}")
+    size = path.stat().st_size
+    with path.open("rb") as handle:
+        if size > max_bytes:
+            handle.seek(size - max_bytes)
+            handle.readline()
+        return handle.read().decode("utf-8", errors="replace")
+
+
+def clock_ms(value: str) -> int | None:
+    try:
+        parsed = datetime.strptime(value, "%H:%M:%S.%f")
+    except ValueError:
+        return None
+    return ((parsed.hour * 60 + parsed.minute) * 60 + parsed.second) * 1000 + parsed.microsecond // 1000
+
+
+def ms_after(reference: str, actual: str) -> float | None:
+    reference_ms = clock_ms(reference)
+    actual_ms = clock_ms(actual)
+    if reference_ms is None or actual_ms is None:
+        return None
+    return (actual_ms - reference_ms) / 1000
+
+
+def format_perf_class_line(line: str) -> str:
+    text = line.split("|", 1)[1].strip() if "|" in line else line.strip()
+    parts = [part.strip() for part in text.split("|")]
+    if len(parts) >= 3:
+        if len(parts) >= 6 and parts[0] in SITE_DEFINITIONS:
+            _, day_label, class_name, start_time, location_name, teacher = parts[:6]
+            for marker in (" No exact ", " Named teacher ", " The class "):
+                if marker in teacher:
+                    teacher = teacher.split(marker, 1)[0].strip()
+            return f"{day_label} {start_time} {short_perf_class_name(class_name)} by {teacher}, {short_perf_location(location_name)}"
+        date_time, class_name, teacher = parts[:3]
+        location = ""
+        for marker in (" Yoga - ", " Fitness - "):
+            if marker in teacher:
+                teacher, location_suffix = teacher.split(marker, 1)
+                location = f"{marker.strip()} {location_suffix}".strip()
+                break
+        location_text = f", {short_perf_location(location)}" if location else ""
+        return f"{date_time} {short_perf_class_name(class_name)} by {teacher.strip()}{location_text}"
+    return text
+
+
+def short_perf_class_name(class_name: str) -> str:
+    cleaned = class_name.strip()
+    for prefix in (
+        "Specialised:",
+        "Grounding:",
+        "Healing:",
+        "Dynamic:",
+        "Hot:",
+        "Mat:",
+        "Elevate:",
+    ):
+        if cleaned.startswith(prefix):
+            return cleaned[len(prefix) :].strip()
+    return cleaned
+
+
+def short_perf_location(location_name: str) -> str:
+    normalized = location_name.strip()
+    if "Ngee Ann" in normalized:
+        return "Ngee Ann City"
+    if "Asia Square" in normalized:
+        return "Asia Sq"
+    return normalized
+
+
+def classify_warmup(value: float) -> str:
+    if value <= 60:
+        return "good"
+    if value <= 150:
+        return "okay"
+    return "slow"
+
+
+def classify_first_post(delta_seconds: float | None) -> str:
+    if delta_seconds is None:
+        return "unknown"
+    if -0.35 <= delta_seconds <= 0.15:
+        return "on target"
+    if delta_seconds < -0.35:
+        return "early"
+    if delta_seconds <= 1:
+        return "slightly late"
+    return "late"
+
+
+def classify_queue_proxy(value: float | None) -> str:
+    if value is None:
+        return "unknown"
+    if value <= 1_500:
+        return "normal"
+    if value <= 2_500:
+        return "busy"
+    return "very busy"
+
+
+def classify_booking_result(booked_count: int, waitlist_count: int, failed_count: int) -> str:
+    if failed_count:
+        return "NEEDS ATTENTION"
+    if waitlist_count:
+        return "MIXED"
+    if booked_count:
+        return "GOOD"
+    return "NO RESULT"
+
+
+def format_signed_seconds(value: float | None) -> str:
+    if value is None:
+        return "unknown"
+    return f"{value:+.3f}s"
+
+
+def format_ms_range(values: list[float]) -> str:
+    if not values:
+        return "not recorded"
+    if len(values) == 1 or min(values) == max(values):
+        return f"{values[0]:.1f}ms"
+    return f"{min(values):.1f}-{max(values):.1f}ms"
+
+
+def parse_queue_proxy_values(message: str) -> list[float]:
+    values: list[float] = []
+    for match in re.finditer(r"(?:focus|follower|first|second)_queue_proxy_ms=([+-]?[0-9.]+)", message):
+        try:
+            values.append(float(match.group(1)))
+        except ValueError:
+            continue
+    return values
+
+
+def site_label(site: str) -> str:
+    return site.capitalize() if site else "Unknown"
+
+
+def parse_latest_booking_run(log_text: str) -> list[LogLine]:
+    parsed = [strip_log_timestamp(line) for line in log_text.splitlines()]
+    outcome_index = -1
+    for index, line in enumerate(parsed):
+        if line.message.startswith("Pure booking run for "):
+            outcome_index = index
+    if outcome_index < 0:
+        raise PureYogaError("No completed booking run found in the performance log yet.")
+
+    start_index = 0
+    for index in range(outcome_index, -1, -1):
+        if parsed[index].message.startswith("Config file:"):
+            start_index = index
+            break
+    end_index = len(parsed)
+    for index in range(outcome_index + 1, len(parsed)):
+        if parsed[index].message.startswith("Config file:"):
+            end_index = index
+            break
+    return parsed[start_index:end_index]
+
+
+def build_performance_report(config: dict[str, Any], config_path: Path, log_path: Path) -> str:
+    timezone_name = str(config.get("runtime", {}).get("timezone", "Asia/Singapore"))
+    runtime_tz, _ = load_runtime_timezone(timezone_name)
+    run_lines = parse_latest_booking_run(read_tail_text(log_path))
+
+    target_date: date | None = None
+    booking_open_clock = "09:00:00.000"
+    run_timestamp: datetime | None = None
+    outcomes: list[str] = []
+    warmups: list[dict[str, Any]] = []
+    requests_seen: list[dict[str, Any]] = []
+    batch_lines: list[str] = []
+    notes: list[str] = []
+    multi_site = False
+    final_summary_started = False
+
+    for index, line in enumerate(run_lines):
+        message = line.message
+        if run_timestamp is None and line.timestamp is not None:
+            run_timestamp = line.timestamp
+        if message.startswith("Pure booking run for "):
+            final_summary_started = True
+            continue
+        if message.startswith("Target class date:"):
+            try:
+                target_date = date.fromisoformat(message.split(":", 1)[1].strip())
+            except ValueError:
+                target_date = None
+        elif message.startswith("Booking opens at:"):
+            open_text = message.split(":", 1)[1].strip()
+            try:
+                booking_open_clock = datetime.fromisoformat(open_text).strftime("%H:%M:%S.%f")[:-3]
+            except ValueError:
+                pass
+        elif "Multi-site run detected" in message:
+            multi_site = True
+        elif "Late booking transport warmup" in message:
+            match = re.search(
+                r"\[(?P<site>[^\]]+)\].*sent_at=(?P<sent>\S+)\s+response_at=(?P<response>\S+)\s+"
+                r"http_rtt_ms=(?P<rtt>[0-9.]+).*cf_pop=(?P<pop>[^ ]+)",
+                message,
+            )
+            if match:
+                warmups.append(
+                    {
+                        "site": match.group("site"),
+                        "sent": match.group("sent"),
+                        "response": match.group("response"),
+                        "rtt": float(match.group("rtt")),
+                        "pop": match.group("pop"),
+                    }
+                )
+        elif "Booking request class_id=" in message:
+            match = re.search(
+                r"\[(?P<site>[^\]]+)\].*sent_at=(?P<sent>\S+)\s+response_at=(?P<response>\S+)\s+"
+                r"http_rtt_ms=(?P<rtt>[0-9.]+)\s+code=(?P<code>\d+)",
+                message,
+            )
+            if match:
+                requests_seen.append(
+                    {
+                        "site": match.group("site"),
+                        "sent": match.group("sent"),
+                        "response": match.group("response"),
+                        "rtt": float(match.group("rtt")),
+                        "code": int(match.group("code")),
+                    }
+                )
+        elif "focus send delta_ms=" in message or "response_gap_ms=" in message or "parallel send delta_ms=" in message:
+            batch_lines.append(message)
+        elif message.startswith("Note:"):
+            notes.append(message)
+        elif final_summary_started and any(
+            message.startswith(f"{status} |")
+            for status in (STATUS_BOOKED, STATUS_WAITLISTED, STATUS_FAILED, STATUS_NO_MATCH, STATUS_SKIPPED)
+        ):
+            entry_lines = [message]
+            next_index = index + 1
+            while next_index < len(run_lines) and run_lines[next_index].timestamp is None:
+                continuation = run_lines[next_index].message.strip()
+                if continuation:
+                    entry_lines.append(continuation)
+                next_index += 1
+            outcomes.append(" ".join(entry_lines))
+
+    if run_timestamp is None:
+        run_timestamp = datetime.now(runtime_tz).replace(tzinfo=None)
+    run_date = run_timestamp.date()
+    target_text = format_display_date(target_date) if target_date else "unknown"
+
+    booked = [item for item in outcomes if item.startswith(STATUS_BOOKED)]
+    waitlisted = [item for item in outcomes if item.startswith(STATUS_WAITLISTED)]
+    failed = [
+        item
+        for item in outcomes
+        if item.startswith(STATUS_FAILED) or item.startswith(STATUS_NO_MATCH) or item.startswith(STATUS_SKIPPED)
+    ]
+
+    verdict = classify_booking_result(len(booked), len(waitlisted), len(failed))
+    total_outcomes = len(outcomes)
+    warmup_by_site = {item["site"]: item for item in warmups}
+    requests_by_site: dict[str, list[dict[str, Any]]] = {}
+    for item in requests_seen:
+        requests_by_site.setdefault(item["site"], []).append(item)
+    queue_values = [value for item in batch_lines for value in parse_queue_proxy_values(item)]
+    max_queue_proxy = max(queue_values) if queue_values else None
+    first_request = (
+        min(requests_seen, key=lambda item: clock_ms(item["sent"]) or 99_999_999)
+        if requests_seen
+        else None
+    )
+    last_request = (
+        max(requests_seen, key=lambda item: clock_ms(item["sent"]) or -1)
+        if requests_seen
+        else None
+    )
+    first_delta = ms_after(booking_open_clock, first_request["sent"]) if first_request else None
+    last_delta = ms_after(booking_open_clock, last_request["sent"]) if last_request else None
+    warmup_values = [item["rtt"] for item in warmups]
+    request_rtts = [item["rtt"] for item in requests_seen]
+
+    lines = [
+        f"PURE BOT PERFORMANCE: {verdict}",
+        f"Run: {format_display_date(run_date)}",
+        f"Target class date: {target_text}",
+        "",
+        "SUMMARY",
+    ]
+    if total_outcomes:
+        lines.append(f"- Booked: {len(booked)}/{total_outcomes}")
+    else:
+        lines.append("- Booked: no final booking result found")
+    if waitlisted:
+        lines.append(f"- Waitlisted: {len(waitlisted)}")
+    if failed:
+        lines.append(f"- Needs attention: {len(failed)}")
+    if first_request:
+        lines.append(
+            f"- First booking POST: {first_request['sent']} "
+            f"({format_signed_seconds(first_delta)} vs 9am, {classify_first_post(first_delta)})"
+        )
+    if max_queue_proxy is not None:
+        lines.append(f"- Pure queue/backend wait: up to {max_queue_proxy:.1f}ms ({classify_queue_proxy(max_queue_proxy)})")
+    if multi_site and last_delta is not None and last_delta > 2:
+        lines.append(f"- Multi-site note: last site started {format_signed_seconds(last_delta)} vs 9am")
+
+    lines.extend(["", "CLASSES"])
+    if booked:
+        for item in booked:
+            lines.append(f"- BOOKED: {format_perf_class_line(item)}")
+    if waitlisted:
+        for item in waitlisted:
+            lines.append(f"- WAITLISTED: {format_perf_class_line(item)}")
+    if failed:
+        for item in failed:
+            status = item.split("|", 1)[0].strip()
+            lines.append(f"- {status}: {format_perf_class_line(item)}")
+    if not outcomes:
+        lines.append("- No final booking outcomes found.")
+
+    lines.extend(["", "TIMING HEALTH"])
+    if warmup_values:
+        slowest_warmup = max(warmup_values)
+        lines.append(f"- Network warmup: {format_ms_range(warmup_values)} ({classify_warmup(slowest_warmup)})")
+    else:
+        lines.append("- Network warmup: not recorded")
+    if request_rtts:
+        lines.append(f"- Booking response time: {format_ms_range(request_rtts)}")
+    else:
+        lines.append("- Booking response time: not recorded")
+    if max_queue_proxy is not None:
+        lines.append(f"- Pure queue/backend pressure: {max_queue_proxy:.1f}ms max ({classify_queue_proxy(max_queue_proxy)})")
+    if warmups:
+        pops = sorted({str(item["pop"]) for item in warmups if item.get("pop")})
+        if pops:
+            lines.append(f"- CloudFront POP: {', '.join(pops)}")
+
+    if requests_by_site or warmup_by_site:
+        lines.extend(["", "BY SITE"])
+        for site in sorted(set(requests_by_site) | set(warmup_by_site)):
+            site_requests = requests_by_site.get(site, [])
+            warmup = warmup_by_site.get(site)
+            site_parts = []
+            if warmup:
+                site_parts.append(f"warmup {warmup['rtt']:.1f}ms")
+            if site_requests:
+                first_site_request = min(site_requests, key=lambda item: clock_ms(item["sent"]) or 99_999_999)
+                site_delta = ms_after(booking_open_clock, first_site_request["sent"])
+                site_parts.append(f"first POST {first_site_request['sent']} ({format_signed_seconds(site_delta)})")
+                site_parts.append(f"RTT {format_ms_range([item['rtt'] for item in site_requests])}")
+                site_parts.append(f"{len(site_requests)} request(s)")
+            lines.append(f"- {site_label(site)}: {', '.join(site_parts)}")
+
+    lines.extend(["", "TAKEAWAY"])
+    if failed:
+        lines.append("- Booking logic needs attention because at least one target did not book cleanly.")
+    elif waitlisted:
+        lines.append("- Speed was not enough for at least one class, or the class was already heavily contested.")
+    elif booked:
+        lines.append("- Booking outcome was good: all final targets booked.")
+    else:
+        lines.append("- No booking result was found, so performance cannot be judged.")
+
+    if requests_seen:
+        if multi_site and last_delta is not None and last_delta > 2:
+            lines.append("- Main performance bottleneck: multi-site sequencing delayed the later site.")
+        elif max_queue_proxy is not None and max_queue_proxy > 1_500:
+            lines.append("- Main performance bottleneck: Pure backend queue, not local network warmup.")
+        elif warmup_values and max(warmup_values) > 150:
+            lines.append("- Main performance bottleneck: warmup/network latency was elevated.")
+        else:
+            lines.append("- No obvious timing problem from this run.")
+
+    for note in notes[:2]:
+        lines.append(f"- {note}")
+
+    return "\n".join(lines)
+
+
+def send_performance_report(config: dict[str, Any], config_path: Path, args: argparse.Namespace) -> int:
+    log_path = Path(args.performance_log) if args.performance_log else config_path.parent / "cron.log"
+    if not log_path.is_absolute():
+        log_path = (config_path.parent / log_path).resolve()
+    report = build_performance_report(config, config_path, log_path)
+    print(report)
+    if args.dry_run:
+        print("\nPerformance report dry-run complete. Telegram was not sent.")
+        return 0
+    safe_notify_from_config(config, report)
+    print("Performance report sent.")
+    return 0
 
 
 class SiteClient:
@@ -1525,13 +1945,7 @@ class PureYogaBot:
 
             if same_location and same_time:
                 exact_time_replacements.append(item)
-            item_minutes = self.time_minutes(class_time)
-            close_time = (
-                item_minutes is not None
-                and target_minutes is not None
-                and abs(item_minutes - target_minutes) <= 180
-            )
-            if close_time and self.close_class_name_match(target.class_name, class_name):
+            if self.close_class_name_match(target.class_name, class_name):
                 close_name_matches.append(item)
 
         def sort_key(item: dict[str, Any]) -> tuple[int, float, str]:
@@ -1743,15 +2157,20 @@ class PureYogaBot:
         message = (result.message or "").strip()
         if class_item:
             teacher = class_item.get("teacher", {})
+            start_time = class_item.get("start_time_display") or class_item.get("start_time") or result.target.start_time
             class_line = (
-                f"{class_item.get('start_date')} {class_item.get('start_time_display')} | "
+                f"{format_display_datetime(result.target_date, start_time)} | "
                 f"{class_item.get('class_type', {}).get('name', 'Unknown')} | "
                 f"{teacher.get('full_name') or teacher.get('name', 'Unknown teacher')}"
             )
             location_line = result.target.location_name or result.target.location_id
         else:
-            class_line = result.target.label
-            location_line = ""
+            teacher = result.target.teacher_name or "any teacher"
+            class_line = (
+                f"{format_display_datetime(result.target_date, result.target.start_time)} | "
+                f"{result.target.class_name} | {teacher}"
+            )
+            location_line = result.target.location_name or result.target.location_id
 
         lines = [f"{result.status} | {class_line}"]
         if location_line:
@@ -2770,6 +3189,15 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--performance-report",
+        action="store_true",
+        help="Read the latest completed booking run from cron.log and send a Telegram timing report.",
+    )
+    parser.add_argument(
+        "--performance-log",
+        help="Override the log file used by --performance-report. Defaults to cron.log next to the config.",
+    )
+    parser.add_argument(
         "--list-classes",
         action="store_true",
         help="Print every class returned for the active site(s) and target date.",
@@ -2785,11 +3213,19 @@ def main() -> int:
 
     try:
         config = load_config(config_path)
+        if args.performance_report:
+            return send_performance_report(config, config_path, args)
         bot = PureYogaBot(config, config_path)
         return bot.run(args)
     except requests.exceptions.SSLError as exc:
         if not args.lookup_only and not args.dry_run:
-            failure_title = "Pure warning check failed" if args.warnings_only else "Pure booking run failed"
+            failure_title = (
+                "Pure performance report failed"
+                if args.performance_report
+                else "Pure warning check failed"
+                if args.warnings_only
+                else "Pure booking run failed"
+            )
             safe_notify_from_config(
                 config,
                 f"{failure_title} with SSL verification error.\n{type(exc).__name__}: {exc}",
@@ -2803,7 +3239,13 @@ def main() -> int:
         return 1
     except requests.RequestException as exc:
         if not args.lookup_only and not args.dry_run:
-            failure_title = "Pure warning check failed" if args.warnings_only else "Pure booking run failed"
+            failure_title = (
+                "Pure performance report failed"
+                if args.performance_report
+                else "Pure warning check failed"
+                if args.warnings_only
+                else "Pure booking run failed"
+            )
             safe_notify_from_config(
                 config,
                 f"{failure_title} with network error.\n{type(exc).__name__}: {exc}",
@@ -2812,7 +3254,13 @@ def main() -> int:
         return 1
     except (PureYogaError, json.JSONDecodeError) as exc:
         if not args.lookup_only and not args.dry_run:
-            failure_title = "Pure warning check failed" if args.warnings_only else "Pure booking run failed"
+            failure_title = (
+                "Pure performance report failed"
+                if args.performance_report
+                else "Pure warning check failed"
+                if args.warnings_only
+                else "Pure booking run failed"
+            )
             safe_notify_from_config(config, f"{failure_title}.\n{type(exc).__name__}: {exc}")
         print(str(exc), file=sys.stderr)
         return 1

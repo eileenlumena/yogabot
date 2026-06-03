@@ -1,42 +1,56 @@
 # Next Actions
 
-Last updated: 2026-05-20
+Last updated: 2026-06-03
 
 ## For Eileen
 
-1. Upload the updated booking engine to the SG server before relying on the latest detailed category/limit Telegram pre-run warnings and corrected evening `--warnings-only` default there.
+1. Start the new Product / Booking Engine Codex thread with the prompt in `PRODUCT_THREAD_HANDOVER_2026-06-03.md`.
+
+2. After any future config change, make sure Product uploads the live config to DigitalOcean:
 
 ```bash
-scp "/Users/eileenmac/Documents/Yoga Booking Bot/pure_yoga_booking.py" root@45.77.249.30:/root/PureYogaBot/pure_yoga_booking.py
+scp "/Users/eileenmac/Documents/Yoga Booking Bot/pure_yoga_config.json" root@104.248.150.64:/root/PureYogaBot/pure_yoga_config.json
 ```
 
-2. Add a separate evening warning-only cron on the SG server after uploading the code.
+3. Watch the next automatic 09:08 Telegram performance report. It should now summarize outcome, first POST timing, Pure queue/backend pressure, multi-site delay, by-site timing, and takeaway.
 
-```bash
-cd /root/PureYogaBot
-python3 pure_yoga_booking.py --config pure_yoga_config.json --warnings-only
-```
+4. If any future Yoga or Fitness class is highly competitive, avoid mixing important Yoga and Fitness targets in the same run where possible, because multi-site runs are sequential.
 
-`--warnings-only` now defaults to the next booking run date when `--target-date` is omitted.
-
-3. If any future Fitness class is highly important at the 9:00 edge, decide whether to avoid mixing Yoga and Fitness in the same run because current multi-site behavior books the second site only after the first site finishes.
-
-4. For a new Product Codex thread, start by asking it to read `PRODUCT_THREAD_HANDOVER_2026-05-18.md`.
-
-5. Watch the next Telegram pre-run warning, if any, to confirm it makes sense with the current My Bookings page.
-
-6. Continue comparing future runs side by side, not as single-day metrics.
+5. Keep using Telegram warnings to decide whether to skip one run, remove a recurring target, or adjust config before the morning booking run.
 
 ## For Product / Booking Engine
 
-1. Before ending future work, update `product/PRODUCT_STATUS.md`.
-2. If UI needs to act, write the handoff in `ops/HANDOFFS.md` and mention it in `product/PRODUCT_STATUS.md`.
-3. If Eileen needs to decide something, add it to `ops/CEO_ACTION_QUEUE.md`.
-4. Commit and push meaningful verified code/docs changes to GitHub before ending substantial work.
+1. Before coding in the next Product thread, read `PRODUCT_THREAD_HANDOVER_2026-06-03.md`, inspect the repo, and verify relevant DigitalOcean state.
+
+2. Continue owning only:
+   - `pure_yoga_booking.py`
+   - live booking behavior
+   - Telegram warnings/notifications
+   - DigitalOcean deployment
+   - booking performance and timing analysis
+
+3. After every code change that should affect live behavior:
+
+```bash
+scp "/Users/eileenmac/Documents/Yoga Booking Bot/pure_yoga_booking.py" root@104.248.150.64:/root/PureYogaBot/pure_yoga_booking.py
+ssh root@104.248.150.64 'cd /root/PureYogaBot && .venv/bin/python -m py_compile pure_yoga_booking.py'
+```
+
+4. After every config change that should affect live behavior:
+
+```bash
+scp "/Users/eileenmac/Documents/Yoga Booking Bot/pure_yoga_config.json" root@104.248.150.64:/root/PureYogaBot/pure_yoga_config.json
+ssh root@104.248.150.64 'cd /root/PureYogaBot && .venv/bin/python pure_yoga_booking.py --config pure_yoga_config.json --lookup-only --target-date YYYY-MM-DD'
+```
+
+5. Keep `pure_yoga_config.json`, Vultr logs, cron logs, and secrets out of Git.
+
+6. Commit and push safe verified Product code/docs at meaningful checkpoints.
 
 ## For UI / Control Panel
 
-1. Before ending future work, update `ui/UI_STATUS.md`.
-2. If Product needs to act, write the handoff in `ops/HANDOFFS.md` and mention it in `ui/UI_STATUS.md`.
-3. Keep UI work within `ui/UI_HANDOVER.md` and `ui/UI_SPEC.md` unless Product approves behavior changes.
-4. Commit and push meaningful verified UI/docs changes to GitHub before ending substantial work.
+1. Keep UI work within UI-owned files unless Product explicitly approves booking-engine changes.
+
+2. Continue treating phone access as a mobile-first web UI / PWA first, not native iOS first.
+
+3. Keep the "Skip this run" workflow clear: it prevents a future bot attempt and does not cancel an already-booked Pure class.

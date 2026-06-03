@@ -1,6 +1,6 @@
 # Product / Booking Engine Status
 
-Last updated: 2026-05-30
+Last updated: 2026-06-03
 
 ## Coordination Status
 
@@ -10,7 +10,7 @@ Last updated: 2026-05-30
   - `ops/HANDOFFS.md`
   - `ops/CEO_ACTION_QUEUE.md`
   - `ops/NEXT_ACTIONS.md`
-- Active cross-thread handoffs: UI booking-limit warning request in `ops/HANDOFFS.md`.
+- Active cross-thread handoffs: new Product thread continuation handoff in `ops/HANDOFFS.md`; UI/PWA roadmap handoff remains open.
 - CEO action queue items from Product: none.
 - Current user next actions are in `ops/NEXT_ACTIONS.md`.
 - Latest discussion: GitHub is recommended only as a private repo after secrets and generated/local files are excluded.
@@ -18,7 +18,7 @@ Last updated: 2026-05-30
 - `.gitignore` excludes live config, logs, bundles, caches, and generated artifacts.
 - Eileen can use either an existing GitHub account or a new GitHub account, as long as the repo is private and secrets remain untracked.
 - GitHub remote is configured as `https://github.com/eileenlumena/yogabot.git`.
-- GitHub push is complete; `main` and `origin/main` are synced at `8020788` (`Add direct GitHub token link`).
+- GitHub push is complete through `d0ce24a` (`Improve booking warnings and UI handoff docs`). Later Product changes are local/deployed but not yet committed.
 - GitHub workflow guidance added: commit/push manually at meaningful checkpoints after verified code/docs changes, not for every small conversation.
 
 ## Current State
@@ -54,34 +54,38 @@ Last updated: 2026-05-30
 - 2026-05-29: Schedule/teacher Telegram warnings now use a high-visibility emoji header and separate per-class blocks with date/time, short location, issue, detail, possible matches, and action.
 - 2026-05-29: User-facing warning dates now use display format like `Fri 29 May 2026`; removed the extra schedule-warning instruction line.
 - 2026-05-30: Product/UI direction captured in `ops/HANDOFFS.md`: future phone access should start as a mobile-first web UI / PWA with Add to Home Screen support, not a native iOS app first.
+- 2026-06-01: DigitalOcean SG server is now the active live bot server at `root@104.248.150.64:/root/PureYogaBot`. Vultr crons are disabled and Vultr is retained only as backup.
+- 2026-06-02: Current recurring config was cleaned and uploaded to DigitalOcean. Important permanent changes: Monday BODYCOMBAT removed, Monday Calisthenics is 12:00 priority 1, Tuesday Kelvin Pilates is `Reformer Dynamic`, Tuesday Yogasthenics Foundation is 13:45, and expired one-offs are cleared.
+- 2026-06-02: Product reviewed and uploaded the UI-thread date-format change in `pure_yoga_booking.py`; booking confirmation rows now use display date/time format like `Sat 6 Jun 2026 13:00`.
+- 2026-06-03: Added automated Telegram performance reports via `--performance-report`. DigitalOcean cron now runs it daily at 09:08 after the 08:45 booking run. The report reads `cron.log` only and does not call Pure.
+- 2026-06-03: Performance report format now gives an overall verdict, booked count, first POST timing vs 9am, Pure queue/backend wait, multi-site delay, class outcomes, timing health, by-site breakdown, and takeaway.
+- 2026-06-03: Fresh detailed Product thread handover created at `PRODUCT_THREAD_HANDOVER_2026-06-03.md`.
 
 ## Immediate Run Context
 
-Latest analyzed booking run: 2026-05-14 for 2026-05-19 classes.
+Latest analyzed booking run: 2026-06-03 for 2026-06-08 classes on DigitalOcean.
 
 Outcome:
 
-- BOOKED Yoga 12:15 `Specialised: Wall Rope`, Dagge Ong, Yoga - Ngee Ann City.
-- BOOKED Yoga 10:00 `Reformer Signature`, Kelvin Teo, Yoga - Ngee Ann City.
-- BOOKED Yoga 13:30 `Specialised: Yogasthenics`, Wen Wen Chen, Yoga - Ngee Ann City.
-- BOOKED Fitness 18:45 `RPM™`, Ayu Astutik, Fitness - Asia Square Tower 1.
-- BOOKED Fitness 17:45 `BODYCOMBAT™`, House Chaalane, Fitness - Ngee Ann City.
+- BOOKED Fitness 12:00 `Calisthenics Foundations`, Joshua Tay, Fitness - Ngee Ann City.
+- BOOKED Fitness 11:15 `Mat: Power Pilates`, Stephany Widjaya, Fitness - Asia Square Tower 1.
+- BOOKED Yoga 16:30 `Specialised: Yogasthenics Foundation`, Aries Ong, Yoga - Ngee Ann City.
 
-Important metrics:
+Important metrics from automated performance report:
 
-- Yoga sent focus at 08:59:59.800 and followers at about 08:59:59.920.
-- Yoga focus send delta was 120.3ms against configured 120ms; residual jitter was +0.3ms.
-- Yoga warmup RTT was elevated at 218.6ms.
-- Yoga queue proxy was +2299.1ms focus / +2015.4ms follower.
-- Fitness was handled after Yoga because multi-site runs are sequential to avoid session replacement; fitness booking requests sent at about 09:00:05.085 and both booked.
+- Overall verdict: `GOOD`.
+- First booking POST: 08:59:59.800, exactly on configured aggressive-probe target.
+- Fitness warmup RTT: 50.0ms, CloudFront POP SIN2-P11.
+- Fitness booking RTT range: 2118.2-2242.1ms; Pure queue/backend pressure was busy.
+- Yoga was the second site and first POST was 09:00:05.146, delayed by multi-site sequencing.
+- Main bottleneck: multi-site sequencing plus Pure backend queue, not DigitalOcean network warmup.
 
 ## Known Issues / Risks
 
-- Server config can fall behind local config.
-- Restored live config changes are not in Git because `pure_yoga_config.json` is intentionally ignored; they must be uploaded to SG server separately.
+- Server config can fall behind local config. After editing `pure_yoga_config.json`, upload it to DigitalOcean and explicitly say whether the server was updated.
+- Live config changes are not in Git because `pure_yoga_config.json` is intentionally ignored.
 - Existing-booking warning fetch is read-only and non-blocking; if it fails, the bot logs the failure and continues with config-only warning counts.
-- Evening `--warnings-only` behavior changed on 2026-05-20; upload the latest `pure_yoga_booking.py` before relying on server-side 8pm warnings.
-- Expired one-off targets were cleaned from local live config on 2026-05-21; upload `pure_yoga_config.json` to SG after cleanup.
+- DigitalOcean cron is active for 20:00 warnings, 08:45 booking, and 09:08 performance reports.
 - Multi-site runs handle Yoga and Fitness one after another, so they are not the cleanest test of exact 9:00 same-site parallel timing.
 - Pure may enforce an advance-booking limit by category/account; this can look like a bot failure if not controlled.
 - Pure schedule changes can produce `NO_MATCH`; this is correct behavior when the target class is no longer posted at that time/location.
@@ -89,13 +93,13 @@ Important metrics:
 
 ## Next Product Tasks
 
-1. Upload `pure_yoga_booking.py` to the SG server before relying on the latest detailed category/limit Telegram warnings there.
-2. Add a separate SG server cron for `--warnings-only`, preferably the evening before the 9am booking run.
-3. In a new Codex thread, read `PRODUCT_THREAD_HANDOVER_2026-05-18.md` first, then inspect the repo before coding.
-4. Upload and verify config before any important run.
-4. After the next run, compare performance against previous days side by side.
-5. Plan a multi-booking test on non-critical classes:
+1. In the new Product Codex thread, read `PRODUCT_THREAD_HANDOVER_2026-06-03.md` first, then inspect the repo/server before coding.
+2. Commit/push safe Product code/docs when Eileen is ready. Do not commit `pure_yoga_config.json` or Vultr logs.
+3. Upload and verify config after every config change.
+4. Watch the next automatic 09:08 Telegram performance report and refine wording if Eileen still finds it hard to read.
+5. Continue comparing performance across several DigitalOcean runs, not single-day numbers.
+6. Plan a multi-booking test on non-critical classes:
    - fewer than 5 advance bookings first;
    - 3+ classes on the same site;
    - avoid mixing Yoga/Fitness unless testing cross-site behavior.
-6. Clean expired one-offs when the user is ready.
+7. Clean expired one-offs whenever one-off testing is completed.

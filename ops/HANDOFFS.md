@@ -1,6 +1,6 @@
 # Handoffs
 
-Last updated: 2026-05-30
+Last updated: 2026-06-03
 
 ## Active Handoffs
 
@@ -11,7 +11,7 @@ Last updated: 2026-05-30
    Context: Pure limits members to 6 Yoga, 6 Pilates, and 6 Fitness bookings within a continuous 5-day period, plus a daily limit of 2 bookings per class type. A previous multi-class test likely failed because this kind of limit was exceeded.
    Required output: UI should classify planned targets by class type, warn before saving targets, and show warnings in Active Run Preview. Start as warnings, not hard blocks.
    Urgency: High for UI safety before relying on the control panel.
-   Status: open.
+   Status: resolved by Product on 2026-06-02. Uploaded `pure_yoga_booking.py` to DigitalOcean and verified server-side `py_compile` plus presence of `format_display_datetime`.
 
 2. Date: 2026-05-18
    From: Product / Booking Engine
@@ -39,6 +39,24 @@ Last updated: 2026-05-30
    Required output: UI thread should consider responsive/mobile-first layouts and PWA readiness for the control panel roadmap. Expected workflows include view upcoming booking schedule, add one-off target, add recurring target, edit/disable target, skip this run, view warnings/results, run lookup/test notification, and eventually sync with the DigitalOcean bot server. Do not prioritize native iOS/TestFlight unless PWA proves insufficient.
    Urgency: Medium. This is roadmap/product direction, not blocking current booking engine work.
    Status: open.
+
+5. Date: 2026-06-02
+   From: UI / Control Panel
+   To: Product / Booking Engine
+   Request: Upload updated booking engine after confirmation-message date formatting change.
+   Context: The UI thread accidentally handled a Product-owned formatting request and changed local `pure_yoga_booking.py` so booking confirmation rows use the warning-style date/time format, e.g. `Sat 6 Jun 2026 13:00`.
+   Required output: Product should review and upload the changed booking engine to the current DigitalOcean bot server, then verify the deployed file. UI should not perform the server upload.
+   Urgency: Medium; needed before live Telegram booking confirmations reflect the new format.
+   Status: resolved by Product on 2026-06-03. Uploaded `pure_yoga_booking.py` to DigitalOcean, verified server-side `py_compile`, and confirmed live booking summaries now use display date/time formatting.
+
+6. Date: 2026-06-03
+   From: Product / Booking Engine
+   To: Product / Booking Engine
+   Request: Continue Product work in a fresh thread using the new detailed handover.
+   Context: The current Product thread is compacting. Product created a fresh handover covering DigitalOcean cron, current recurring targets, recent booking engine changes, automated performance reports, deployment commands, dirty repo state, and risks.
+   Required output: New Product thread should read `PRODUCT_THREAD_HANDOVER_2026-06-03.md`, inspect the repo/server, summarize understanding, and not code until after summarizing.
+   Urgency: High for context continuity.
+   Status: open until new Product thread confirms the handover.
 
 ## Protocol
 
